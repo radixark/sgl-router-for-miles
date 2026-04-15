@@ -12,7 +12,7 @@ use std::{sync::Arc, time::Duration};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
-use wfaas::{
+use crate::workflow::{
     BackoffStrategy, FailureAction, RetryPolicy, StepDefinition, StepExecutor, StepId, StepResult,
     WorkflowContext, WorkflowDefinition, WorkflowError, WorkflowResult,
 };

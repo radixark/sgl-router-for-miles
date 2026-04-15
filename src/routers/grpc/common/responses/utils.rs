@@ -3,9 +3,9 @@
 use std::sync::Arc;
 
 use axum::response::Response;
-use data_connector::{ConversationItemStorage, ConversationStorage, ResponseStorage};
+use crate::data_connector::{ConversationItemStorage, ConversationStorage, ResponseStorage};
 use serde_json::to_value;
-use smg_mcp::McpManager;
+use crate::mcp::McpManager;
 use tracing::{debug, error, warn};
 
 use crate::{

@@ -214,6 +214,27 @@ pub struct JobStatus {
     pub timestamp: u64,
 }
 
+impl JobStatus {
+    fn now_ts() -> u64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
+    }
+
+    pub fn pending(job_type: &str, worker_url: &str) -> Self {
+        Self { job_type: job_type.to_string(), worker_url: worker_url.to_string(), status: "pending".to_string(), message: None, timestamp: Self::now_ts() }
+    }
+
+    pub fn processing(job_type: &str, worker_url: &str) -> Self {
+        Self { job_type: job_type.to_string(), worker_url: worker_url.to_string(), status: "processing".to_string(), message: None, timestamp: Self::now_ts() }
+    }
+
+    pub fn failed(job_type: &str, worker_url: &str, error: String) -> Self {
+        Self { job_type: job_type.to_string(), worker_url: worker_url.to_string(), status: "failed".to_string(), message: Some(error), timestamp: Self::now_ts() }
+    }
+}
+
 /// Worker list response
 #[derive(Debug, Clone, Serialize)]
 pub struct WorkerListResponse {
@@ -360,6 +381,18 @@ pub struct WorkerLoadsResult {
     pub successful: usize,
     /// Number of workers with failed load fetches
     pub failed: usize,
+}
+
+impl axum::response::IntoResponse for FlushCacheResult {
+    fn into_response(self) -> axum::response::Response {
+        axum::Json(self).into_response()
+    }
+}
+
+impl axum::response::IntoResponse for WorkerLoadsResult {
+    fn into_response(self) -> axum::response::Response {
+        axum::Json(self).into_response()
+    }
 }
 
 /// Individual worker load information

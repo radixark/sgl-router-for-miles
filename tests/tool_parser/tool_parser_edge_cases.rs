@@ -2,7 +2,7 @@
 //!
 //! Tests for malformed input, edge cases, and error recovery
 
-use smg::tool_parser::{JsonParser, MistralParser, PythonicParser, QwenParser, ToolParser};
+use smg::smg::tool_parser::{JsonParser, MistralParser, PythonicParser, QwenParser, ToolParser};
 
 use crate::common::create_test_tools;
 

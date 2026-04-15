@@ -1,6 +1,6 @@
 //! MiniMax M2 Parser Integration Tests
 
-use smg::tool_parser::{MinimaxM2Parser, ToolParser};
+use smg::smg::tool_parser::{MinimaxM2Parser, ToolParser};
 
 use crate::common::create_test_tools;
 

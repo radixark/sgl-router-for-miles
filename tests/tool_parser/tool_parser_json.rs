@@ -3,7 +3,7 @@
 //! Tests for the JSON parser which handles OpenAI, Claude, and generic JSON formats
 
 use serde_json::json;
-use smg::tool_parser::{JsonParser, ToolParser};
+use smg::smg::tool_parser::{JsonParser, ToolParser};
 
 use crate::common::{create_test_tools, streaming_helpers::*};
 

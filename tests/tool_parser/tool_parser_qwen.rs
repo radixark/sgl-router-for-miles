@@ -3,7 +3,7 @@
 //! Tests for the Qwen parser which handles <tool_call>...</tool_call> format
 
 use serde_json::json;
-use smg::tool_parser::{QwenParser, ToolParser};
+use smg::smg::tool_parser::{QwenParser, ToolParser};
 
 use crate::common::{create_test_tools, streaming_helpers::*};
 

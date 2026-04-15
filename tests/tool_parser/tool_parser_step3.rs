@@ -1,6 +1,6 @@
 //! Step3 Parser Integration Tests
 
-use smg::tool_parser::{Step3Parser, ToolParser};
+use smg::smg::tool_parser::{Step3Parser, ToolParser};
 
 use crate::common::create_test_tools;
 

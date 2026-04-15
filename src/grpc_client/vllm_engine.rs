@@ -125,6 +125,14 @@ pub struct VllmEngineClient {
 }
 
 impl VllmEngineClient {
+    /// Create a new client with trace injection support
+    pub async fn connect_with_trace_injector(
+        endpoint: &str,
+        _trace_injector: std::sync::Arc<dyn super::TraceInjector>,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        Self::connect(endpoint).await
+    }
+
     /// Create a new client and connect to the vLLM server
     pub async fn connect(endpoint: &str) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         debug!("Connecting to vLLM gRPC server at {}", endpoint);

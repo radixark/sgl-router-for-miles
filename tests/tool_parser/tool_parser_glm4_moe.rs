@@ -1,6 +1,6 @@
 //! GLM-4 MoE Parser Integration Tests
 
-use smg::tool_parser::{Glm4MoeParser, ToolParser};
+use smg::smg::tool_parser::{Glm4MoeParser, ToolParser};
 
 use crate::common::create_test_tools;
 

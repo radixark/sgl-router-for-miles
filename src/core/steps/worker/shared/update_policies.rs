@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use tracing::{debug, warn};
-use wfaas::{
+use crate::workflow::{
     StepExecutor, StepResult, WorkflowContext, WorkflowData, WorkflowError, WorkflowResult,
 };
 

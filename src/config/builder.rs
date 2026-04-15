@@ -1,4 +1,4 @@
-use smg_mcp::McpConfig;
+use crate::mcp::McpConfig;
 
 use super::{
     CircuitBreakerConfig, ConfigError, ConfigResult, DiscoveryConfig, HealthCheckConfig,

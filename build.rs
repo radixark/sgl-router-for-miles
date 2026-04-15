@@ -14,6 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Rebuild triggers
     println!("cargo:rerun-if-changed=src/proto/sglang_scheduler.proto");
     println!("cargo:rerun-if-changed=src/proto/vllm_engine.proto");
+    println!("cargo:rerun-if-changed=src/mesh/proto/gossip.proto");
     println!("cargo:rerun-if-changed=Cargo.toml");
 
     // Compile protobuf files
@@ -28,6 +29,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "src/proto/vllm_engine.proto",
             ],
             &["src/proto"],
+        )?;
+
+    // Compile mesh gossip proto
+    tonic_prost_build::configure()
+        .build_server(true)
+        .build_client(true)
+        .compile_protos(
+            &["src/mesh/proto/gossip.proto"],
+            &["src/mesh/proto"],
         )?;
 
     // Set version info environment variables

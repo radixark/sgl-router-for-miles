@@ -1,6 +1,6 @@
 //! Kimi K2 Parser Integration Tests
 
-use smg::tool_parser::{KimiK2Parser, ToolParser};
+use smg::smg::tool_parser::{KimiK2Parser, ToolParser};
 
 use crate::common::create_test_tools;
 

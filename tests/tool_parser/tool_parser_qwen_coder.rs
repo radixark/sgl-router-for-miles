@@ -4,7 +4,7 @@
 //! <tool_call>\n<function=name>\n<parameter=key>value</parameter>\n</function>\n</tool_call>
 
 use serde_json::json;
-use smg::tool_parser::{parsers::QwenCoderParser, traits::ToolParser};
+use smg::smg::tool_parser::{parsers::QwenCoderParser, traits::ToolParser};
 
 use crate::common::{create_test_tools, streaming_helpers::*};
 

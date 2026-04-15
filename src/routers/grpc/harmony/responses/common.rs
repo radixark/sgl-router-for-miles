@@ -1,9 +1,9 @@
 //! Shared helpers and state tracking for Harmony Responses
 
 use axum::response::Response;
-use data_connector::ResponseId;
+use crate::data_connector::ResponseId;
 use serde_json::{from_value, json, to_string, Value};
-use smg_mcp as mcp;
+use crate::mcp;
 use tracing::{debug, error, warn};
 use uuid::Uuid;
 

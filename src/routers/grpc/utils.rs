@@ -5,7 +5,7 @@ use std::{collections::HashMap, sync::Arc};
 use axum::response::Response;
 use http::StatusCode;
 use serde_json::{json, Map, Value};
-use smg_grpc_client::sglang_proto::{InputLogProbs, OutputLogProbs};
+use crate::grpc_client::sglang_proto::{InputLogProbs, OutputLogProbs};
 use tracing::{error, warn};
 use uuid::Uuid;
 

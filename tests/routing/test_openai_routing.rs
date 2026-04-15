@@ -16,7 +16,7 @@ use axum::{
     routing::post,
     Json, Router,
 };
-use data_connector::{ResponseId, StoredResponse};
+use smg::data_connector::{ResponseId, StoredResponse};
 use serde_json::json;
 use smg::{
     config::{ConfigError, HistoryBackend, OracleConfig, RouterConfig, RoutingMode},

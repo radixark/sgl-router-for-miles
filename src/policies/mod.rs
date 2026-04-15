@@ -6,7 +6,7 @@
 use std::{fmt::Debug, sync::Arc};
 
 use async_trait::async_trait;
-use smg_mesh::OptionalMeshSyncManager;
+use crate::mesh::OptionalMeshSyncManager;
 
 use crate::core::{HashRing, Worker};
 

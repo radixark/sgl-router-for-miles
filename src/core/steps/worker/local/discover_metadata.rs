@@ -8,7 +8,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::{debug, warn};
-use wfaas::{StepExecutor, StepResult, WorkflowContext, WorkflowError, WorkflowResult};
+use crate::workflow::{StepExecutor, StepResult, WorkflowContext, WorkflowError, WorkflowResult};
 
 use super::strip_protocol;
 use crate::{

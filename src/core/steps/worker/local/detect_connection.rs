@@ -5,7 +5,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use reqwest::Client;
 use tracing::debug;
-use wfaas::{StepExecutor, StepId, StepResult, WorkflowContext, WorkflowError, WorkflowResult};
+use crate::workflow::{StepExecutor, StepId, StepResult, WorkflowContext, WorkflowError, WorkflowResult};
 
 use super::strip_protocol;
 use crate::{

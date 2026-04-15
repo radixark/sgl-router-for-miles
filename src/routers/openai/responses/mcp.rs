@@ -13,7 +13,7 @@ use std::{io, sync::Arc};
 use axum::http::HeaderMap;
 use bytes::Bytes;
 use serde_json::{json, to_value, Value};
-use smg_mcp as mcp;
+use crate::mcp;
 use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 

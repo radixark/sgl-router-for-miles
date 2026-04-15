@@ -9,9 +9,9 @@
 use std::sync::Arc;
 
 use axum::response::Response;
-use data_connector::{self, ConversationId, ResponseId};
+use crate::data_connector::{self, ConversationId, ResponseId};
 use serde_json::{json, Value};
-use smg_mcp::{self as mcp, McpManager};
+use crate::mcp::{self as mcp, McpManager};
 use tracing::{debug, warn};
 use uuid::Uuid;
 
@@ -320,9 +320,9 @@ pub(super) async fn load_conversation_history(
 
         // Load conversation history
         const MAX_CONVERSATION_HISTORY_ITEMS: usize = 100;
-        let params = data_connector::ListParams {
+        let params = crate::data_connector::ListParams {
             limit: MAX_CONVERSATION_HISTORY_ITEMS,
-            order: data_connector::SortOrder::Asc,
+            order: crate::data_connector::SortOrder::Asc,
             after: None,
         };
 

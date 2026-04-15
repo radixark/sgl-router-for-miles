@@ -19,7 +19,7 @@ use smg::{
     service_discovery::ServiceDiscoveryConfig,
     version,
 };
-use smg_mesh::service::MeshServerConfig;
+use smg::mesh::service::MeshServerConfig;
 fn parse_prefill_args() -> Vec<(String, Option<u16>)> {
     let args: Vec<String> = std::env::args().collect();
     let mut prefill_entries = Vec::new();

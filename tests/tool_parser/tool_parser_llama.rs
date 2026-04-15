@@ -2,7 +2,7 @@
 //!
 //! Tests for the Llama parser which handles <|python_tag|> format and plain JSON
 
-use smg::tool_parser::{LlamaParser, ToolParser};
+use smg::smg::tool_parser::{LlamaParser, ToolParser};
 
 use crate::common::{create_test_tools, streaming_helpers::*};
 

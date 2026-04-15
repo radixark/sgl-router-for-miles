@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use axum::{body::Body, http::StatusCode, response::Response};
 use bytes::Bytes;
 use serde_json::json;
-use smg_mcp as mcp;
+use crate::mcp;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use uuid::Uuid;

@@ -1,6 +1,6 @@
 //! DeepSeek V3 Parser Integration Tests
 
-use smg::tool_parser::{DeepSeekParser, ToolParser};
+use smg::smg::tool_parser::{DeepSeekParser, ToolParser};
 
 use crate::common::create_test_tools;
 

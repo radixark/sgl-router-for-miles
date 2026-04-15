@@ -3,7 +3,7 @@
 //! Tests for the Mistral parser which handles [TOOL_CALLS] format
 
 use serde_json::json;
-use smg::tool_parser::{MistralParser, ToolParser};
+use smg::smg::tool_parser::{MistralParser, ToolParser};
 
 #[tokio::test]
 async fn test_mistral_single_tool() {
