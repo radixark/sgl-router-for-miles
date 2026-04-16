@@ -568,3 +568,131 @@ fn test_tool_choice_allowed_tools_one_invalid_among_valid() {
         err
     );
 }
+
+// SGLang extension fields serde round-trip tests
+
+#[test]
+fn test_sglang_extension_fields_roundtrip() {
+    let json_with_extensions = json!({
+        "model": "test-model",
+        "messages": [{"role": "user", "content": "hello"}],
+        "return_hidden_states": true,
+        "return_routed_experts": true,
+        "return_cached_tokens_details": true,
+        "return_prompt_token_ids": true,
+        "return_meta_info": true,
+        "input_ids": [1, 2, 3, 42, 100],
+        "stop_regex": ["\\d+", "end"],
+        "custom_logit_processor": "serialized_processor",
+        "custom_params": {"key": "value"},
+        "max_dynamic_patch": 12,
+        "min_dynamic_patch": 1,
+        "rid": "req-123",
+        "extra_key": "salt-abc",
+        "cache_salt": "salt-xyz",
+        "priority": 5,
+        "bootstrap_host": "10.0.0.1",
+        "bootstrap_port": 8080,
+        "bootstrap_room": 42,
+        "routed_dp_rank": 2,
+        "disagg_prefill_dp_rank": 1,
+        "data_parallel_rank": 3
+    });
+
+    let req: ChatCompletionRequest =
+        serde_json::from_value(json_with_extensions).expect("should deserialize");
+    assert!(req.return_hidden_states);
+    assert!(req.return_routed_experts);
+    assert!(req.return_cached_tokens_details);
+    assert!(req.return_prompt_token_ids);
+    assert!(req.return_meta_info);
+    assert_eq!(req.input_ids, Some(vec![1, 2, 3, 42, 100]));
+    assert_eq!(req.max_dynamic_patch, Some(12));
+    assert_eq!(req.min_dynamic_patch, Some(1));
+    assert_eq!(req.priority, Some(5));
+    assert_eq!(req.routed_dp_rank, Some(2));
+    assert_eq!(req.disagg_prefill_dp_rank, Some(1));
+    assert_eq!(req.data_parallel_rank, Some(3));
+
+    let serialized = serde_json::to_value(&req).expect("should serialize");
+    assert_eq!(serialized["return_hidden_states"], true);
+    assert_eq!(serialized["return_routed_experts"], true);
+    assert_eq!(serialized["return_cached_tokens_details"], true);
+    assert_eq!(serialized["return_prompt_token_ids"], true);
+    assert_eq!(serialized["return_meta_info"], true);
+    assert_eq!(serialized["input_ids"], json!([1, 2, 3, 42, 100]));
+    assert_eq!(serialized["stop_regex"], json!(["\\d+", "end"]));
+    assert_eq!(serialized["custom_logit_processor"], "serialized_processor");
+    assert_eq!(serialized["custom_params"], json!({"key": "value"}));
+    assert_eq!(serialized["max_dynamic_patch"], 12);
+    assert_eq!(serialized["min_dynamic_patch"], 1);
+    assert_eq!(serialized["rid"], "req-123");
+    assert_eq!(serialized["extra_key"], "salt-abc");
+    assert_eq!(serialized["cache_salt"], "salt-xyz");
+    assert_eq!(serialized["priority"], 5);
+    assert_eq!(serialized["bootstrap_host"], "10.0.0.1");
+    assert_eq!(serialized["bootstrap_port"], 8080);
+    assert_eq!(serialized["bootstrap_room"], 42);
+    assert_eq!(serialized["routed_dp_rank"], 2);
+    assert_eq!(serialized["disagg_prefill_dp_rank"], 1);
+    assert_eq!(serialized["data_parallel_rank"], 3);
+}
+
+#[test]
+fn test_sglang_extension_fields_default_values() {
+    let json_minimal = json!({
+        "model": "test-model",
+        "messages": [{"role": "user", "content": "hello"}]
+    });
+
+    let req: ChatCompletionRequest =
+        serde_json::from_value(json_minimal).expect("should deserialize");
+    assert!(!req.return_hidden_states);
+    assert!(!req.return_routed_experts);
+    assert!(!req.return_cached_tokens_details);
+    assert!(!req.return_prompt_token_ids);
+    assert!(!req.return_meta_info);
+    assert!(req.input_ids.is_none());
+    assert!(req.stop_regex.is_none());
+    assert!(req.custom_logit_processor.is_none());
+    assert!(req.custom_params.is_none());
+    assert!(req.max_dynamic_patch.is_none());
+    assert!(req.min_dynamic_patch.is_none());
+    assert!(req.rid.is_none());
+    assert!(req.extra_key.is_none());
+    assert!(req.cache_salt.is_none());
+    assert!(req.priority.is_none());
+    assert!(req.bootstrap_host.is_none());
+    assert!(req.bootstrap_port.is_none());
+    assert!(req.bootstrap_room.is_none());
+    assert!(req.routed_dp_rank.is_none());
+    assert!(req.disagg_prefill_dp_rank.is_none());
+    assert!(req.data_parallel_rank.is_none());
+}
+
+#[test]
+fn test_sglang_optional_fields_omitted_when_none() {
+    let req = ChatCompletionRequest {
+        model: "test-model".to_string(),
+        messages: vec![ChatMessage::User {
+            content: MessageContent::Text("hello".to_string()),
+            name: None,
+        }],
+        ..Default::default()
+    };
+
+    let serialized = serde_json::to_value(&req).expect("should serialize");
+    let omitted = [
+        "input_ids", "stop_regex", "custom_logit_processor", "custom_params",
+        "max_dynamic_patch", "min_dynamic_patch", "rid", "extra_key", "cache_salt",
+        "priority", "bootstrap_host", "bootstrap_port", "bootstrap_room",
+        "routed_dp_rank", "disagg_prefill_dp_rank", "data_parallel_rank",
+    ];
+    for field in omitted {
+        assert!(
+            serialized.get(field).is_none(),
+            "{} should be omitted when None",
+            field
+        );
+    }
+}
