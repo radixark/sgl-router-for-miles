@@ -90,6 +90,22 @@ pub struct GenerateRequest {
     #[serde(default)]
     pub return_hidden_states: bool,
 
+    /// Return routed expert indices (MoE models)
+    #[serde(default)]
+    pub return_routed_experts: bool,
+
+    /// Start position in prompt for returning routed experts
+    #[serde(default)]
+    pub routed_experts_start_len: i32,
+
+    /// Return prompt token IDs in response
+    #[serde(default)]
+    pub return_prompt_token_ids: bool,
+
+    /// Require reasoning mode for the model
+    #[serde(default)]
+    pub require_reasoning: bool,
+
     /// The modalities of the image data [image, multi-images, video]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub modalities: Option<Vec<String>>,
@@ -128,9 +144,28 @@ pub struct GenerateRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bootstrap_pair_key: Option<String>,
 
-    /// Data parallel rank routing
+    /// DP routing — external router assigns a specific DP worker
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub routed_dp_rank: Option<i32>,
+
+    /// PD disagg — hint telling decode which prefill DP worker has the KV cache
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub disagg_prefill_dp_rank: Option<i32>,
+
+    /// Deprecated: use routed_dp_rank instead
     #[serde(skip_serializing_if = "Option::is_none")]
     pub data_parallel_rank: Option<i32>,
+
+    /// Routing key for request routing
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub routing_key: Option<String>,
+
+    /// SGLang multimodal tiling controls
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_dynamic_patch: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min_dynamic_patch: Option<i32>,
 
     /// Background response
     #[serde(default)]
