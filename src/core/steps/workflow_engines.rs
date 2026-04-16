@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use wfaas::{EventSubscriber, InMemoryStore, WorkflowEngine};
+use crate::workflow::{EventSubscriber, InMemoryStore, WorkflowEngine};
 
 use super::{
     create_external_worker_workflow, create_local_worker_workflow,

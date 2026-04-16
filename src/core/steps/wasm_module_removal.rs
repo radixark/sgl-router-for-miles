@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Duration};
 use async_trait::async_trait;
 use tracing::{debug, info};
 use uuid::Uuid;
-use wfaas::{
+use crate::workflow::{
     FailureAction, StepDefinition, StepExecutor, StepId, StepResult, WorkflowContext,
     WorkflowDefinition, WorkflowError, WorkflowResult,
 };

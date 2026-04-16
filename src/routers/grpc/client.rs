@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use smg_grpc_client::{SglangSchedulerClient, VllmEngineClient};
+use crate::grpc_client::{SglangSchedulerClient, VllmEngineClient};
 
 use crate::{
     observability::otel_trace::OtelTraceInjector,
@@ -160,8 +160,8 @@ impl GrpcClient {
 
 /// Unified ModelInfo wrapper
 pub enum ModelInfo {
-    Sglang(Box<smg_grpc_client::sglang_proto::GetModelInfoResponse>),
-    Vllm(smg_grpc_client::vllm_proto::GetModelInfoResponse),
+    Sglang(Box<crate::grpc_client::sglang_proto::GetModelInfoResponse>),
+    Vllm(crate::grpc_client::vllm_proto::GetModelInfoResponse),
 }
 
 impl ModelInfo {

@@ -10,10 +10,10 @@ use std::{
 };
 
 use dashmap::DashMap;
-use smg_mcp::McpConfig;
+use crate::mcp::McpConfig;
 use tokio::sync::{mpsc, Semaphore};
 use tracing::{debug, error, info, warn};
-use wfaas::WorkflowId;
+use crate::workflow::WorkflowId;
 
 use crate::{
     app_context::AppContext,

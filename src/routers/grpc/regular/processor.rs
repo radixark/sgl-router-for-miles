@@ -6,7 +6,7 @@
 use std::{sync::Arc, time::Instant};
 
 use serde_json::Value;
-use smg_grpc_client::sglang_proto::generate_complete::MatchedStop;
+use crate::grpc_client::sglang_proto::generate_complete::MatchedStop;
 use tracing::error;
 
 use crate::{

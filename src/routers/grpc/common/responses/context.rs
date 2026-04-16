@@ -4,8 +4,8 @@
 
 use std::sync::{Arc, RwLock as StdRwLock};
 
-use data_connector::{ConversationItemStorage, ConversationStorage, ResponseStorage};
-use smg_mcp::McpManager;
+use crate::data_connector::{ConversationItemStorage, ConversationStorage, ResponseStorage};
+use crate::mcp::McpManager;
 
 use crate::routers::grpc::{context::SharedComponents, pipeline::RequestPipeline};
 

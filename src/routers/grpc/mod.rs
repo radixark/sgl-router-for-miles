@@ -1,6 +1,6 @@
 //! gRPC router implementations
 
-use smg_grpc_client::sglang_proto::MultimodalInputs;
+use crate::grpc_client::sglang_proto::MultimodalInputs;
 
 use crate::protocols::common::StringOrArray;
 

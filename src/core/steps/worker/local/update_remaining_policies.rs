@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use tracing::{debug, info};
-use wfaas::{StepExecutor, StepResult, WorkflowContext, WorkflowError, WorkflowResult};
+use crate::workflow::{StepExecutor, StepResult, WorkflowContext, WorkflowError, WorkflowResult};
 
 use crate::core::steps::workflow_data::WorkerRemovalWorkflowData;
 

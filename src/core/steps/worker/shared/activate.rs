@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use tracing::info;
-use wfaas::{
+use crate::workflow::{
     StepExecutor, StepResult, WorkflowContext, WorkflowData, WorkflowError, WorkflowResult,
 };
 

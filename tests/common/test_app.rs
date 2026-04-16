@@ -1,7 +1,7 @@
 use std::sync::{Arc, OnceLock};
 
 use axum::Router;
-use data_connector::{
+use smg::data_connector::{
     MemoryConversationItemStorage, MemoryConversationStorage, MemoryResponseStorage,
 };
 use reqwest::Client;
@@ -17,7 +17,7 @@ use smg::{
     server::{build_app, AppState},
     tokenizer::registry::TokenizerRegistry,
 };
-use smg_mcp::{McpConfig, McpManager};
+use smg::mcp::{McpConfig, McpManager};
 
 /// Create a test Axum application using the actual server's build_app function
 #[allow(dead_code)]

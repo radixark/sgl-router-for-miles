@@ -17,7 +17,7 @@ use uuid::Uuid;
 use crate::{
     core::{job_queue::Job, steps::WasmModuleConfigRequest},
     server::AppState,
-    wasm::{
+    wasm::module::{
         WasmMetrics, WasmModuleAddRequest, WasmModuleAddResponse, WasmModuleAddResult,
         WasmModuleListResponse,
     },

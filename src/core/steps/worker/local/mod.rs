@@ -33,7 +33,7 @@ pub use submit_tokenizer_job::SubmitTokenizerJobStep;
 pub use update_policies_for_worker::UpdatePoliciesForWorkerStep;
 pub use update_remaining_policies::UpdateRemainingPoliciesStep;
 pub use update_worker_properties::UpdateWorkerPropertiesStep;
-use wfaas::{BackoffStrategy, FailureAction, RetryPolicy, StepDefinition, WorkflowDefinition};
+use crate::workflow::{BackoffStrategy, FailureAction, RetryPolicy, StepDefinition, WorkflowDefinition};
 
 use super::shared::{ActivateWorkersStep, RegisterWorkersStep, UpdatePoliciesStep};
 use crate::{

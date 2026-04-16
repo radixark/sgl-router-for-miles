@@ -3,16 +3,15 @@ use std::{
     time::Duration,
 };
 
-use data_connector::{
-    create_storage, ConversationItemStorage, ConversationStorage, ResponseStorage,
-    StorageFactoryConfig,
-};
 use reqwest::Client;
-use smg_mcp::McpManager;
 use tracing::debug;
 
 use crate::{
     config::RouterConfig,
+    data_connector::{
+        create_storage, ConversationItemStorage, ConversationStorage, ResponseStorage,
+    },
+    mcp::McpManager,
     core::{steps::WorkflowEngines, JobQueue, LoadMonitor, WorkerRegistry, WorkerService},
     middleware::TokenBucket,
     observability::inflight_tracker::InFlightRequestTracker,
@@ -430,14 +429,8 @@ impl AppContextBuilder {
 
     /// Create all storage backends using the factory function
     fn with_storage(mut self, config: &RouterConfig) -> Result<Self, String> {
-        let storage_config = StorageFactoryConfig {
-            backend: &config.history_backend,
-            oracle: config.oracle.as_ref(),
-            postgres: config.postgres.as_ref(),
-            redis: config.redis.as_ref(),
-        };
         let (response_storage, conversation_storage, conversation_item_storage) =
-            create_storage(storage_config)?;
+            create_storage(config)?;
 
         self.response_storage = Some(response_storage);
         self.conversation_storage = Some(conversation_storage);
@@ -490,7 +483,7 @@ impl AppContextBuilder {
         // Always create with empty config and defaults
         debug!("Initializing MCP manager with empty config and default settings (5 min TTL, 100 max connections)");
 
-        let empty_config = smg_mcp::McpConfig {
+        let empty_config = crate::mcp::McpConfig {
             servers: Vec::new(),
             pool: Default::default(),
             proxy: None,

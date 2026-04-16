@@ -13,7 +13,7 @@ pub use discover_models::{
     group_models_into_cards, infer_model_type_from_id, DiscoverModelsStep, ModelInfo,
     ModelsResponse,
 };
-use wfaas::{BackoffStrategy, FailureAction, RetryPolicy, StepDefinition, WorkflowDefinition};
+use crate::workflow::{BackoffStrategy, FailureAction, RetryPolicy, StepDefinition, WorkflowDefinition};
 
 use super::shared::{ActivateWorkersStep, RegisterWorkersStep, UpdatePoliciesStep};
 use crate::{

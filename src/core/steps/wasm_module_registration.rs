@@ -9,7 +9,7 @@ use sha2::{Digest, Sha256};
 use tracing::{debug, info, warn};
 use uuid::Uuid;
 use wasmtime::{component::Component, Config, Engine};
-use wfaas::{
+use crate::workflow::{
     BackoffStrategy, FailureAction, RetryPolicy, StepDefinition, StepExecutor, StepId, StepResult,
     WorkflowContext, WorkflowDefinition, WorkflowError, WorkflowResult,
 };

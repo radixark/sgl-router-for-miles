@@ -3,9 +3,9 @@
 use std::sync::Arc;
 
 use axum::http::HeaderMap;
-use data_connector::{ConversationItemStorage, ConversationStorage, ResponseStorage};
+use crate::data_connector::{ConversationItemStorage, ConversationStorage, ResponseStorage};
 use serde_json::Value;
-use smg_mcp::McpManager;
+use crate::mcp::McpManager;
 
 use super::provider::Provider;
 use crate::{

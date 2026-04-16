@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use smg_mcp::{McpManager, McpServerConfig, McpTransport};
+use crate::mcp::{McpManager, McpServerConfig, McpTransport};
 use tracing::warn;
 
 use crate::protocols::responses::{ResponseTool, ResponseToolType};
