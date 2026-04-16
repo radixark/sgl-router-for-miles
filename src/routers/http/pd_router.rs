@@ -7,6 +7,7 @@ use axum::{
     http::{header::CONTENT_TYPE, HeaderMap, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
 };
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine};
 use futures_util::StreamExt;
 use memchr::memmem;
 use reqwest::Client;
@@ -60,9 +61,16 @@ struct PDRequestContext<'a> {
     batch_size: Option<usize>,
     is_stream: bool,
     return_logprob: bool,
+    return_routed_experts: bool,
     request_text: Option<String>,
     model_id: Option<&'a str>,
     headers: Option<HeaderMap>,
+}
+
+impl PDRequestContext<'_> {
+    fn needs_prefill_json_merge(&self) -> bool {
+        !self.is_stream && (self.return_logprob || self.return_routed_experts)
+    }
 }
 
 impl PDRouter {
@@ -601,12 +609,12 @@ impl PDRouter {
                 }
 
                 // Process prefill response
-                let prefill_body = if context.return_logprob {
+                let prefill_body = if context.needs_prefill_json_merge() {
                     match self
                         .process_prefill_response(
                             prefill_result,
                             prefill.url(),
-                            context.return_logprob,
+                            context.needs_prefill_json_merge(),
                         )
                         .await
                     {
@@ -651,11 +659,12 @@ impl PDRouter {
                     )
                 } else {
                     // Non-streaming response
-                    if context.return_logprob {
+                    if context.needs_prefill_json_merge() {
                         self.process_non_streaming_response(
                             res,
                             status,
                             context.return_logprob,
+                            context.return_routed_experts,
                             prefill_body,
                         )
                         .await
@@ -903,6 +912,7 @@ impl PDRouter {
         res: reqwest::Response,
         status: StatusCode,
         return_logprob: bool,
+        return_routed_experts: bool,
         prefill_body: Option<bytes::Bytes>,
     ) -> Response {
         let response = res.bytes().await;
@@ -914,7 +924,7 @@ impl PDRouter {
             }
         };
 
-        if !return_logprob {
+        if !return_logprob && !return_routed_experts {
             return (status, decode_body).into_response();
         }
 
@@ -927,11 +937,16 @@ impl PDRouter {
             serde_json::from_slice::<Value>(&prefill_body),
             serde_json::from_slice::<Value>(&decode_body),
         ) else {
-            warn!("Failed to parse responses for logprob merging");
+            warn!("Failed to parse responses for PD response merging");
             return (status, decode_body).into_response();
         };
 
-        Self::merge_logprobs_in_json(&prefill_json, &mut decode_json);
+        Self::merge_prefill_json(
+            &prefill_json,
+            &mut decode_json,
+            return_logprob,
+            return_routed_experts,
+        );
 
         // Return merged response
         match serde_json::to_vec(&decode_json) {
@@ -948,7 +963,7 @@ impl PDRouter {
         &self,
         prefill_result: Result<reqwest::Response, reqwest::Error>,
         prefill_url: &str,
-        return_logprob: bool,
+        need_merge_prefill: bool,
     ) -> Result<(StatusCode, Option<bytes::Bytes>), Response> {
         // Check prefill result first - it's critical for disaggregated mode
         let prefill_response = match prefill_result {
@@ -1017,18 +1032,18 @@ impl PDRouter {
             return Err(error_response);
         }
 
-        // Read prefill body if needed for logprob merging
-        let prefill_body = if return_logprob {
+        // Read prefill body when the caller needs to merge prefill metadata back into decode.
+        let prefill_body = if need_merge_prefill {
             match prefill_response.bytes().await {
                 Ok(body) => Some(body),
                 Err(e) => {
-                    warn!("Failed to read prefill response body for logprobs: {}", e);
+                    warn!("Failed to read prefill response body for PD merge: {}", e);
                     None
                 }
             }
         } else {
-            // For non-logprob requests, just consume the response without storing
-            debug!("Consuming prefill response body (non-logprob request)");
+            // For passthrough requests, just consume the response without storing.
+            debug!("Consuming prefill response body (no PD merge requested)");
             match prefill_response.bytes().await {
                 Ok(_) => debug!("Prefill response consumed successfully"),
                 Err(e) => warn!("Error consuming prefill response: {}", e),
@@ -1090,6 +1105,73 @@ impl PDRouter {
             }
         }
         false
+    }
+
+    fn merge_routed_experts_in_json(prefill_json: &Value, decode_json: &mut Value) -> bool {
+        let (Some(prefill_routed_experts), Some(decode_routed_experts)) = (
+            prefill_json.get("routed_experts").and_then(Value::as_str),
+            decode_json.get("routed_experts").and_then(Value::as_str),
+        ) else {
+            return false;
+        };
+
+        let prefill_bytes = match BASE64_STANDARD.decode(prefill_routed_experts) {
+            Ok(bytes) => bytes,
+            Err(error) => {
+                warn!("Failed to decode prefill routed_experts: {}", error);
+                return false;
+            }
+        };
+
+        let decode_bytes = match BASE64_STANDARD.decode(decode_routed_experts) {
+            Ok(bytes) => bytes,
+            Err(error) => {
+                warn!("Failed to decode decode routed_experts: {}", error);
+                return false;
+            }
+        };
+
+        let suffix = decode_bytes.get(prefill_bytes.len()..).unwrap_or_default();
+        let mut merged = Vec::with_capacity(prefill_bytes.len() + suffix.len());
+        merged.extend_from_slice(&prefill_bytes);
+        merged.extend_from_slice(suffix);
+
+        if let Some(obj) = decode_json.as_object_mut() {
+            obj.insert(
+                "routed_experts".to_string(),
+                Value::String(BASE64_STANDARD.encode(merged)),
+            );
+            return true;
+        }
+
+        false
+    }
+
+    fn merge_prefill_json(
+        prefill_json: &Value,
+        decode_json: &mut Value,
+        merge_logprobs: bool,
+        merge_routed_experts: bool,
+    ) {
+        if merge_logprobs {
+            Self::merge_logprobs_in_json(prefill_json, decode_json);
+        }
+
+        if merge_routed_experts {
+            if let (Some(prefill_meta), Some(decode_meta)) = (
+                prefill_json.get("meta_info"),
+                decode_json.get_mut("meta_info"),
+            ) {
+                Self::merge_routed_experts_in_json(prefill_meta, decode_meta);
+            }
+
+            if let (Some(prefill_sglext), Some(decode_sglext)) = (
+                prefill_json.get("sglext"),
+                decode_json.get_mut("sglext"),
+            ) {
+                Self::merge_routed_experts_in_json(prefill_sglext, decode_sglext);
+            }
+        }
     }
 
     // Simple helper to merge logprobs in streaming responses
@@ -1267,6 +1349,7 @@ impl RouterTrait for PDRouter {
             batch_size,
             is_stream,
             return_logprob,
+            return_routed_experts: body.return_routed_experts,
             request_text,
             model_id,
             headers: headers.cloned(),
@@ -1309,6 +1392,7 @@ impl RouterTrait for PDRouter {
             batch_size,
             is_stream,
             return_logprob,
+            return_routed_experts: body.return_routed_experts,
             request_text,
             model_id,
             headers: headers.cloned(),
@@ -1343,6 +1427,7 @@ impl RouterTrait for PDRouter {
             batch_size,
             is_stream,
             return_logprob,
+            return_routed_experts: false,
             request_text,
             model_id,
             headers: headers.cloned(),
@@ -1369,6 +1454,7 @@ impl RouterTrait for PDRouter {
             batch_size: None,
             is_stream: false,
             return_logprob: false,
+            return_routed_experts: false,
             request_text: req_text,
             model_id,
             headers: headers.cloned(),
