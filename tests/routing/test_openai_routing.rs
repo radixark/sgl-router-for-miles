@@ -84,6 +84,8 @@ fn create_minimal_completion_request() -> CompletionRequest {
         lora_path: None,
         session_params: None,
         return_hidden_states: false,
+        return_routed_experts: false,
+        routed_experts_start_len: 0,
         sampling_seed: None,
         other: serde_json::Map::new(),
     }

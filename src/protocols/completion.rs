@@ -138,6 +138,14 @@ pub struct CompletionRequest {
     #[serde(default)]
     pub return_hidden_states: bool,
 
+    /// Return routed expert indices (SGLang extension, MoE models)
+    #[serde(default)]
+    pub return_routed_experts: bool,
+
+    /// Absolute start position for returned routed experts (SGLang extension)
+    #[serde(default)]
+    pub routed_experts_start_len: i32,
+
     /// Sampling seed for deterministic outputs
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sampling_seed: Option<u64>,
