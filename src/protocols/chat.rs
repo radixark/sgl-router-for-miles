@@ -360,6 +360,10 @@ pub struct ChatCompletionRequest {
     #[serde(default)]
     pub return_routed_experts: bool,
 
+    /// Absolute start position for returned routed experts (SGLang extension)
+    #[serde(default)]
+    pub routed_experts_start_len: i32,
+
     /// Return cached token details in response (SGLang extension)
     #[serde(default)]
     pub return_cached_tokens_details: bool,

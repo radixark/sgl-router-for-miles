@@ -94,7 +94,7 @@ pub struct GenerateRequest {
     #[serde(default)]
     pub return_routed_experts: bool,
 
-    /// Start position in prompt for returning routed experts
+    /// Absolute start position for returned routed experts
     #[serde(default)]
     pub routed_experts_start_len: i32,
 

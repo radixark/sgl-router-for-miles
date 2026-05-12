@@ -30,6 +30,7 @@ const SGLANG_FIELDS: &[&str] = &[
     "chat_template_kwargs",
     "return_hidden_states",
     "return_routed_experts",
+    "routed_experts_start_len",
     "return_cached_tokens_details",
     "return_prompt_token_ids",
     "return_meta_info",

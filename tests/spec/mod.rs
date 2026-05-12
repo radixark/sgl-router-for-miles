@@ -4,6 +4,7 @@
 
 mod chat_completion;
 mod chat_message;
+mod completion;
 mod embedding;
 mod generate;
 mod rerank;

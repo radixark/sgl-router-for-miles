@@ -1427,7 +1427,7 @@ impl RouterTrait for PDRouter {
             batch_size,
             is_stream,
             return_logprob,
-            return_routed_experts: false,
+            return_routed_experts: body.return_routed_experts,
             request_text,
             model_id,
             headers: headers.cloned(),

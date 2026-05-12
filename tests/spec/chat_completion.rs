@@ -578,6 +578,7 @@ fn test_sglang_extension_fields_roundtrip() {
         "messages": [{"role": "user", "content": "hello"}],
         "return_hidden_states": true,
         "return_routed_experts": true,
+        "routed_experts_start_len": 10,
         "return_cached_tokens_details": true,
         "return_prompt_token_ids": true,
         "return_meta_info": true,
@@ -603,6 +604,7 @@ fn test_sglang_extension_fields_roundtrip() {
         serde_json::from_value(json_with_extensions).expect("should deserialize");
     assert!(req.return_hidden_states);
     assert!(req.return_routed_experts);
+    assert_eq!(req.routed_experts_start_len, 10);
     assert!(req.return_cached_tokens_details);
     assert!(req.return_prompt_token_ids);
     assert!(req.return_meta_info);
@@ -617,6 +619,7 @@ fn test_sglang_extension_fields_roundtrip() {
     let serialized = serde_json::to_value(&req).expect("should serialize");
     assert_eq!(serialized["return_hidden_states"], true);
     assert_eq!(serialized["return_routed_experts"], true);
+    assert_eq!(serialized["routed_experts_start_len"], 10);
     assert_eq!(serialized["return_cached_tokens_details"], true);
     assert_eq!(serialized["return_prompt_token_ids"], true);
     assert_eq!(serialized["return_meta_info"], true);
@@ -649,6 +652,7 @@ fn test_sglang_extension_fields_default_values() {
         serde_json::from_value(json_minimal).expect("should deserialize");
     assert!(!req.return_hidden_states);
     assert!(!req.return_routed_experts);
+    assert_eq!(req.routed_experts_start_len, 0);
     assert!(!req.return_cached_tokens_details);
     assert!(!req.return_prompt_token_ids);
     assert!(!req.return_meta_info);
