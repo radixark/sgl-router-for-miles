@@ -98,6 +98,10 @@ pub struct GenerateRequest {
     #[serde(default)]
     pub routed_experts_start_len: i32,
 
+    /// Return indexer topk indices (DSA/NSA models)
+    #[serde(default)]
+    pub return_indexer_topk: bool,
+
     /// Return prompt token IDs in response
     #[serde(default)]
     pub return_prompt_token_ids: bool,
