@@ -94,6 +94,10 @@ pub struct GenerateRequest {
     #[serde(default)]
     pub return_routed_experts: bool,
 
+    /// Return token sampling masks in response metadata
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub return_sampling_mask: Option<Value>,
+
     /// Absolute start position for returned routed experts
     #[serde(default)]
     pub routed_experts_start_len: i32,
