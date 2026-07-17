@@ -42,6 +42,7 @@ class RouterArgs:
     bucket_adjust_interval_secs: int = 5
     dp_aware: bool = False
     enable_igw: bool = False  # Enable IGW (Inter-Gateway) mode for multi-model support
+    allow_requests_without_routing_key: bool = False  # Allow keyless requests under consistent_hashing/manual policies
     api_key: Optional[str] = None
     log_dir: Optional[str] = None
     log_level: Optional[str] = None
@@ -354,6 +355,11 @@ class RouterArgs:
             f"--{prefix}enable-igw",
             action="store_true",
             help="Enable IGW (Inference-Gateway) mode for multi-model support",
+        )
+        routing_group.add_argument(
+            f"--{prefix}allow-requests-without-routing-key",
+            action="store_true",
+            help="Allow requests without an X-SMG-Routing-Key header under consistent_hashing/manual policies",
         )
 
         # PD-specific arguments

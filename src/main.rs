@@ -193,6 +193,10 @@ struct CliArgs {
     #[arg(long, default_value_t = false, help_heading = "Routing Policy")]
     enable_igw: bool,
 
+    /// Allow requests without an X-SMG-Routing-Key header under consistent_hashing/manual policies
+    #[arg(long, default_value_t = false, help_heading = "Routing Policy")]
+    allow_requests_without_routing_key: bool,
+
     // ==================== PD Disaggregation ====================
     /// Enable PD (Prefill-Decode) disaggregated mode
     #[arg(long, default_value_t = false, help_heading = "PD Disaggregation")]
@@ -1028,6 +1032,7 @@ impl CliArgs {
             .circuit_breaker(!self.disable_circuit_breaker)
             .enable_wasm(self.enable_wasm)
             .igw(self.enable_igw)
+            .allow_requests_without_routing_key(self.allow_requests_without_routing_key)
             .maybe_server_cert_and_key(self.tls_cert_path.as_ref(), self.tls_key_path.as_ref());
 
         builder.build()

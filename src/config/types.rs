@@ -45,6 +45,9 @@ pub struct RouterConfig {
     pub health_check: HealthCheckConfig,
     #[serde(default)]
     pub enable_igw: bool,
+    /// Allow requests without an X-SMG-Routing-Key header under consistent_hashing/manual policies
+    #[serde(default)]
+    pub allow_requests_without_routing_key: bool,
     /// Can be a HuggingFace model ID or local path
     pub model_path: Option<String>,
     /// Overrides model_path tokenizer if provided
@@ -665,6 +668,7 @@ impl Default for RouterConfig {
             disable_circuit_breaker: false,
             health_check: HealthCheckConfig::default(),
             enable_igw: false,
+            allow_requests_without_routing_key: false,
             connection_mode: ConnectionMode::Http,
             model_path: None,
             tokenizer_path: None,

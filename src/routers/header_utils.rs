@@ -2,8 +2,11 @@ use axum::{
     body::Body,
     extract::Request,
     http::{HeaderMap, HeaderValue},
+    response::Response,
 };
 use http::header::HeaderName;
+
+use crate::routers::error;
 
 static HEADER_TARGET_WORKER: HeaderName = HeaderName::from_static("x-smg-target-worker");
 static HEADER_ROUTING_KEY: HeaderName = HeaderName::from_static("x-smg-routing-key");
@@ -21,6 +24,33 @@ pub fn extract_target_worker(headers: Option<&HeaderMap>) -> Option<&str> {
 
 pub fn extract_routing_key(headers: Option<&HeaderMap>) -> Option<&str> {
     extract_header_value(headers, &HEADER_ROUTING_KEY)
+}
+
+/// Under `consistent_hashing` and `manual` policies a keyless request silently loses
+/// session affinity, so reject it unless the router is started with
+/// `--allow-requests-without-routing-key`.
+pub fn missing_routing_key_response(
+    policy_names: &[&str],
+    headers: Option<&HeaderMap>,
+    allow_requests_without_routing_key: bool,
+) -> Option<Response> {
+    if allow_requests_without_routing_key {
+        return None;
+    }
+    if !policy_names
+        .iter()
+        .any(|name| matches!(*name, "consistent_hashing" | "manual"))
+    {
+        return None;
+    }
+    if extract_routing_key(headers).is_some() || extract_target_worker(headers).is_some() {
+        return None;
+    }
+    Some(error::bad_request(
+        "missing_routing_key",
+        "the routing policy requires an X-SMG-Routing-Key header on every request; \
+         attach a routing key or start the router with --allow-requests-without-routing-key",
+    ))
 }
 
 /// Copy request headers to a Vec of name-value string pairs
@@ -295,5 +325,40 @@ mod tests {
         assert!(!should_forward_request_header("cookie"));
         assert!(!should_forward_request_header("x-custom-header"));
         assert!(!should_forward_request_header("x-api-key"));
+    }
+
+    #[test]
+    fn test_missing_routing_key_rejected_for_key_policies() {
+        let empty = HeaderMap::new();
+        for policy in ["consistent_hashing", "manual"] {
+            assert!(missing_routing_key_response(&[policy], Some(&empty), false).is_some());
+        }
+        // empty header value counts as missing
+        let mut headers = HeaderMap::new();
+        headers.insert("x-smg-routing-key", "".parse().unwrap());
+        assert!(missing_routing_key_response(&["manual"], Some(&headers), false).is_some());
+        // PD mode: one key-based policy is enough to require the key
+        assert!(missing_routing_key_response(&["random", "manual"], Some(&empty), false).is_some());
+    }
+
+    #[test]
+    fn test_missing_routing_key_allowed_cases() {
+        let empty = HeaderMap::new();
+        // escape hatch disables the check
+        assert!(missing_routing_key_response(&["manual"], Some(&empty), true).is_none());
+        // policies that do not route by key
+        for policy in ["cache_aware", "round_robin", "random", "power_of_two"] {
+            assert!(missing_routing_key_response(&[policy], Some(&empty), false).is_none());
+        }
+        // routing key present
+        let mut headers = HeaderMap::new();
+        headers.insert("x-smg-routing-key", "abc".parse().unwrap());
+        assert!(missing_routing_key_response(&["manual"], Some(&headers), false).is_none());
+        // explicit target worker is an alternative routing directive
+        let mut headers = HeaderMap::new();
+        headers.insert("x-smg-target-worker", "0".parse().unwrap());
+        assert!(
+            missing_routing_key_response(&["consistent_hashing"], Some(&headers), false).is_none()
+        );
     }
 }
