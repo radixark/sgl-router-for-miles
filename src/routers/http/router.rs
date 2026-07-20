@@ -49,6 +49,7 @@ pub struct Router {
     client: Client,
     dp_aware: bool,
     enable_igw: bool,
+    allow_requests_without_routing_key: bool,
     retry_config: RetryConfig,
 }
 
@@ -60,6 +61,10 @@ impl std::fmt::Debug for Router {
             .field("client", &self.client)
             .field("dp_aware", &self.dp_aware)
             .field("enable_igw", &self.enable_igw)
+            .field(
+                "allow_requests_without_routing_key",
+                &self.allow_requests_without_routing_key,
+            )
             .field("retry_config", &self.retry_config)
             .finish()
     }
@@ -74,6 +79,9 @@ impl Router {
             client: ctx.client.clone(),
             dp_aware: ctx.router_config.dp_aware,
             enable_igw: ctx.router_config.enable_igw,
+            allow_requests_without_routing_key: ctx
+                .router_config
+                .allow_requests_without_routing_key,
             retry_config: ctx.router_config.effective_retry_config(),
         })
     }
@@ -202,6 +210,18 @@ impl Router {
         let text = typed_req.extract_text_for_routing();
         let model = model_id.unwrap_or(UNKNOWN_MODEL_ID);
         let endpoint = route_to_endpoint(route);
+
+        let policy = match model_id {
+            Some(model) => self.policy_registry.get_policy_or_default(model),
+            None => self.policy_registry.get_default_policy(),
+        };
+        if let Some(response) = header_utils::missing_routing_key_response(
+            &[policy.name()],
+            headers,
+            self.allow_requests_without_routing_key,
+        ) {
+            return response;
+        }
 
         // Record request start (Layer 2)
         Metrics::record_router_request(
@@ -869,6 +889,7 @@ mod tests {
             client: Client::new(),
             retry_config: RetryConfig::default(),
             enable_igw: false,
+            allow_requests_without_routing_key: false,
         }
     }
 

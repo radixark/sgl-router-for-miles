@@ -53,6 +53,7 @@ pub struct PDRouter {
     pub retry_config: RetryConfig,
     pub api_key: Option<String>,
     pub enable_igw: bool,
+    pub allow_requests_without_routing_key: bool,
 }
 
 #[derive(Clone)]
@@ -173,6 +174,9 @@ impl PDRouter {
             retry_config: ctx.router_config.effective_retry_config(),
             api_key: ctx.router_config.api_key.clone(),
             enable_igw: ctx.router_config.enable_igw,
+            allow_requests_without_routing_key: ctx
+                .router_config
+                .allow_requests_without_routing_key,
         })
     }
 
@@ -289,6 +293,16 @@ impl PDRouter {
         context: PDRequestContext<'_>,
     ) -> Response {
         let start_time = Instant::now();
+
+        let prefill_policy = self.policy_registry.get_prefill_policy();
+        let decode_policy = self.policy_registry.get_decode_policy();
+        if let Some(response) = header_utils::missing_routing_key_response(
+            &[prefill_policy.name(), decode_policy.name()],
+            headers,
+            self.allow_requests_without_routing_key,
+        ) {
+            return response;
+        }
 
         let route = context.route;
         let model = context.model_id.unwrap_or(UNKNOWN_MODEL_ID);
@@ -1513,6 +1527,7 @@ mod tests {
             retry_config: RetryConfig::default(),
             api_key: Some("test_api_key".to_string()),
             enable_igw: false,
+            allow_requests_without_routing_key: false,
         }
     }
 

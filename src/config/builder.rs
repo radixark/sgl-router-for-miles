@@ -351,6 +351,11 @@ impl RouterConfigBuilder {
         self
     }
 
+    pub fn allow_requests_without_routing_key(mut self, allow: bool) -> Self {
+        self.config.allow_requests_without_routing_key = allow;
+        self
+    }
+
     // ==================== WASM ====================
 
     pub fn enable_wasm(mut self, enable: bool) -> Self {
