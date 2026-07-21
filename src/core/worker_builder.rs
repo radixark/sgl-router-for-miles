@@ -23,6 +23,7 @@ pub struct BasicWorkerBuilder {
     health_config: HealthConfig,
     circuit_breaker_config: CircuitBreakerConfig,
     grpc_client: Option<GrpcClient>,
+    bootstrap_host_override: Option<String>,
 }
 
 impl BasicWorkerBuilder {
@@ -39,6 +40,7 @@ impl BasicWorkerBuilder {
             health_config: HealthConfig::default(),
             circuit_breaker_config: CircuitBreakerConfig::default(),
             grpc_client: None,
+            bootstrap_host_override: None,
         }
     }
 
@@ -55,7 +57,13 @@ impl BasicWorkerBuilder {
             health_config: HealthConfig::default(),
             circuit_breaker_config: CircuitBreakerConfig::default(),
             grpc_client: None,
+            bootstrap_host_override: None,
         }
+    }
+
+    pub fn bootstrap_host(mut self, host: impl Into<String>) -> Self {
+        self.bootstrap_host_override = Some(host.into());
+        self
     }
 
     /// Set the API key
@@ -133,28 +141,30 @@ impl BasicWorkerBuilder {
 
         use tokio::sync::OnceCell;
 
-        let bootstrap_host = match url::Url::parse(&self.url) {
-            Ok(parsed) => parsed.host_str().unwrap_or("localhost").to_string(),
-            Err(_) if !self.url.contains("://") => {
-                match url::Url::parse(&format!("http://{}", self.url)) {
-                    Ok(parsed) => parsed.host_str().unwrap_or("localhost").to_string(),
-                    Err(_) => {
-                        tracing::warn!(
-                            "Failed to parse URL '{}', defaulting to localhost",
-                            self.url
-                        );
-                        "localhost".to_string()
+        let bootstrap_host = self
+            .bootstrap_host_override
+            .unwrap_or_else(|| match url::Url::parse(&self.url) {
+                Ok(parsed) => parsed.host_str().unwrap_or("localhost").to_string(),
+                Err(_) if !self.url.contains("://") => {
+                    match url::Url::parse(&format!("http://{}", self.url)) {
+                        Ok(parsed) => parsed.host_str().unwrap_or("localhost").to_string(),
+                        Err(_) => {
+                            tracing::warn!(
+                                "Failed to parse URL '{}', defaulting to localhost",
+                                self.url
+                            );
+                            "localhost".to_string()
+                        }
                     }
                 }
-            }
-            Err(_) => {
-                tracing::warn!(
-                    "Failed to parse URL '{}', defaulting to localhost",
-                    self.url
-                );
-                "localhost".to_string()
-            }
-        };
+                Err(_) => {
+                    tracing::warn!(
+                        "Failed to parse URL '{}', defaulting to localhost",
+                        self.url
+                    );
+                    "localhost".to_string()
+                }
+            });
 
         let bootstrap_port = match self.worker_type {
             WorkerType::Prefill { bootstrap_port } => bootstrap_port,
@@ -335,7 +345,18 @@ impl DPAwareWorkerBuilder {
     /// Build the DPAwareWorker instance
     pub fn build(self) -> DPAwareWorker {
         let worker_url = format!("{}@{}", self.base_url, self.dp_rank);
+        let bootstrap_host = match url::Url::parse(&self.base_url) {
+            Ok(parsed) => parsed.host_str().unwrap_or("localhost").to_string(),
+            Err(_) if !self.base_url.contains("://") => {
+                url::Url::parse(&format!("http://{}", self.base_url))
+                    .ok()
+                    .and_then(|parsed| parsed.host_str().map(str::to_string))
+                    .unwrap_or_else(|| "localhost".to_string())
+            }
+            Err(_) => "localhost".to_string(),
+        };
         let mut builder = BasicWorkerBuilder::new(worker_url)
+            .bootstrap_host(bootstrap_host)
             .models(self.models)
             .worker_type(self.worker_type)
             .connection_mode(self.connection_mode)
@@ -477,6 +498,19 @@ mod tests {
         assert_eq!(worker.dp_rank(), Some(2));
         assert_eq!(worker.dp_size(), Some(8));
         assert_eq!(worker.worker_type(), &WorkerType::Regular);
+    }
+
+    #[test]
+    fn test_dp_aware_worker_bootstrap_host_uses_base_url() {
+        let worker = DPAwareWorkerBuilder::new("http://10.0.0.5:8080", 1, 4)
+            .worker_type(WorkerType::Prefill {
+                bootstrap_port: Some(8998),
+            })
+            .build();
+
+        assert_eq!(worker.url(), "http://10.0.0.5:8080@1");
+        assert_eq!(worker.bootstrap_host(), "10.0.0.5");
+        assert_eq!(worker.bootstrap_port(), Some(8998));
     }
 
     #[test]

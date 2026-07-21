@@ -16,7 +16,6 @@ use serde_json::{json, Value};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::{debug, error, warn};
 
-use super::pd_types::api_path;
 use crate::{
     config::types::RetryConfig,
     core::{
@@ -81,7 +80,7 @@ impl PDRouter {
         headers: Option<Vec<(String, String)>>,
     ) -> Response {
         let workers = self.worker_registry.get_prefill_workers();
-        let first_worker_url = workers.first().map(|w| w.url().to_string());
+        let first_worker_url = workers.first().map(|w| w.base_url().to_string());
 
         if let Some(worker_url) = first_worker_url {
             self.proxy_to_worker(worker_url, endpoint, headers).await
@@ -225,6 +224,7 @@ impl PDRouter {
     const BOOTSTRAP_HOST_KEY: &'static str = "bootstrap_host";
     const BOOTSTRAP_PORT_KEY: &'static str = "bootstrap_port";
     const BOOTSTRAP_ROOM_KEY: &'static str = "bootstrap_room";
+    const DISAGG_PREFILL_DP_RANK_KEY: &'static str = "disagg_prefill_dp_rank";
 
     fn inject_bootstrap_into_value(
         mut original: Value,
@@ -284,6 +284,24 @@ impl PDRouter {
             );
         }
         Ok(original)
+    }
+
+    fn inject_prefill_dp_rank_for_decode(
+        mut decode_request: Value,
+        prefill_worker: &dyn Worker,
+    ) -> Result<Value, String> {
+        let Some(prefill_dp_rank) = prefill_worker.dp_rank() else {
+            return Ok(decode_request);
+        };
+
+        let obj = decode_request
+            .as_object_mut()
+            .ok_or_else(|| "Request must be a JSON object".to_string())?;
+        obj.insert(
+            Self::DISAGG_PREFILL_DP_RANK_KEY.to_string(),
+            Value::from(prefill_dp_rank as u64),
+        );
+        Ok(decode_request)
     }
 
     async fn execute_dual_dispatch<T: Serialize + Clone>(
@@ -363,10 +381,29 @@ impl PDRouter {
                             Err(e) => return Self::handle_serialization_error(e),
                         };
 
+                        let prefill_json_request =
+                            match prefill.prepare_request(json_request.clone()).await {
+                                Ok(v) => v,
+                                Err(e) => return Self::handle_serialization_error(e),
+                            };
+                        let decode_json_request = match Self::inject_prefill_dp_rank_for_decode(
+                            json_request,
+                            prefill.as_ref(),
+                        ) {
+                            Ok(v) => v,
+                            Err(e) => return Self::handle_serialization_error(e),
+                        };
+                        let decode_json_request =
+                            match decode.prepare_request(decode_json_request).await {
+                                Ok(v) => v,
+                                Err(e) => return Self::handle_serialization_error(e),
+                            };
+
                         let response = self
                             .execute_dual_dispatch_internal(
                                 headers,
-                                json_request,
+                                prefill_json_request,
+                                decode_json_request,
                                 context,
                                 Arc::clone(&prefill),
                                 Arc::clone(&decode),
@@ -552,10 +589,12 @@ impl PDRouter {
     }
 
     // Internal method that performs the actual dual dispatch (without retry logic)
+    #[allow(clippy::too_many_arguments)]
     async fn execute_dual_dispatch_internal(
         &self,
         headers: Option<&HeaderMap>,
-        json_request: Value,
+        prefill_json_request: Value,
+        decode_json_request: Value,
         context: PDRequestContext<'_>,
         prefill: Arc<dyn Worker>,
         decode: Arc<dyn Worker>,
@@ -575,17 +614,17 @@ impl PDRouter {
         // Build both requests
         let prefill_request = self.build_post_with_headers(
             &self.client,
-            prefill.url(),
+            prefill.as_ref(),
             context.route,
-            &json_request,
+            &prefill_json_request,
             headers,
             false,
         );
         let decode_request = self.build_post_with_headers(
             &self.client,
-            decode.url(),
+            decode.as_ref(),
             context.route,
-            &json_request,
+            &decode_json_request,
             headers,
             false,
         );
@@ -1071,13 +1110,13 @@ impl PDRouter {
     fn build_post_with_headers(
         &self,
         client: &Client,
-        url: &str,
+        worker: &dyn Worker,
         route: &'static str,
         json_request: &Value,
         headers: Option<&HeaderMap>,
         connection_close: bool,
     ) -> reqwest::RequestBuilder {
-        let mut request = client.post(api_path(url, route)).json(json_request);
+        let mut request = client.post(worker.endpoint_url(route)).json(json_request);
         if connection_close {
             request = request.header("Connection", "close");
         }
@@ -1179,10 +1218,9 @@ impl PDRouter {
                 Self::merge_routed_experts_in_json(prefill_meta, decode_meta);
             }
 
-            if let (Some(prefill_sglext), Some(decode_sglext)) = (
-                prefill_json.get("sglext"),
-                decode_json.get_mut("sglext"),
-            ) {
+            if let (Some(prefill_sglext), Some(decode_sglext)) =
+                (prefill_json.get("sglext"), decode_json.get_mut("sglext"))
+            {
                 Self::merge_routed_experts_in_json(prefill_sglext, decode_sglext);
             }
         }
@@ -1513,7 +1551,7 @@ impl RouterTrait for PDRouter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::{BasicWorkerBuilder, WorkerType};
+    use crate::core::{BasicWorkerBuilder, DPAwareWorkerBuilder, WorkerType};
 
     fn create_test_pd_router() -> PDRouter {
         let worker_registry = Arc::new(WorkerRegistry::new());
@@ -1537,6 +1575,62 @@ mod tests {
             .build();
         worker.set_healthy(healthy);
         Box::new(worker)
+    }
+
+    #[test]
+    fn test_build_post_uses_base_url_for_dp_aware_worker() {
+        let router = create_test_pd_router();
+        let worker = DPAwareWorkerBuilder::new("http://127.0.0.1:30000", 2, 4)
+            .worker_type(WorkerType::Decode)
+            .build();
+
+        let request = router
+            .build_post_with_headers(
+                &router.client,
+                &worker,
+                "/generate",
+                &json!({"text": "hello"}),
+                None,
+                false,
+            )
+            .build()
+            .expect("request should build");
+
+        assert_eq!(worker.url(), "http://127.0.0.1:30000@2");
+        assert_eq!(
+            worker.endpoint_url("/generate"),
+            "http://127.0.0.1:30000/generate"
+        );
+        assert_eq!(request.url().as_str(), "http://127.0.0.1:30000/generate");
+    }
+
+    #[test]
+    fn test_inject_prefill_dp_rank_for_decode_dp_aware() {
+        let prefill = DPAwareWorkerBuilder::new("http://127.0.0.1:30000", 2, 4)
+            .worker_type(WorkerType::Prefill {
+                bootstrap_port: None,
+            })
+            .build();
+
+        let decode_request = json!({"text": "hello"});
+        let result = PDRouter::inject_prefill_dp_rank_for_decode(decode_request, &prefill).unwrap();
+
+        assert_eq!(result["disagg_prefill_dp_rank"], 2);
+    }
+
+    #[test]
+    fn test_inject_prefill_dp_rank_for_decode_non_dp_aware_is_noop() {
+        let prefill = BasicWorkerBuilder::new("http://127.0.0.1:30000")
+            .worker_type(WorkerType::Prefill {
+                bootstrap_port: None,
+            })
+            .build();
+
+        let decode_request = json!({"text": "hello"});
+        let result =
+            PDRouter::inject_prefill_dp_rank_for_decode(decode_request.clone(), &prefill).unwrap();
+
+        assert_eq!(result, decode_request);
     }
 
     #[tokio::test]
