@@ -123,6 +123,11 @@ pub struct WorkerInfo {
     /// Worker URL
     pub url: String,
 
+    pub base_url: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dp_rank: Option<usize>,
+
     /// Model ID this worker serves
     pub model_id: String,
 
@@ -183,6 +188,8 @@ impl WorkerInfo {
     pub fn pending(worker_id: &str, url: String, job_status: Option<JobStatus>) -> Self {
         Self {
             id: worker_id.to_string(),
+            base_url: url.clone(),
+            dp_rank: None,
             url,
             model_id: UNKNOWN_MODEL_ID.to_string(),
             priority: 0,
@@ -223,15 +230,33 @@ impl JobStatus {
     }
 
     pub fn pending(job_type: &str, worker_url: &str) -> Self {
-        Self { job_type: job_type.to_string(), worker_url: worker_url.to_string(), status: "pending".to_string(), message: None, timestamp: Self::now_ts() }
+        Self {
+            job_type: job_type.to_string(),
+            worker_url: worker_url.to_string(),
+            status: "pending".to_string(),
+            message: None,
+            timestamp: Self::now_ts(),
+        }
     }
 
     pub fn processing(job_type: &str, worker_url: &str) -> Self {
-        Self { job_type: job_type.to_string(), worker_url: worker_url.to_string(), status: "processing".to_string(), message: None, timestamp: Self::now_ts() }
+        Self {
+            job_type: job_type.to_string(),
+            worker_url: worker_url.to_string(),
+            status: "processing".to_string(),
+            message: None,
+            timestamp: Self::now_ts(),
+        }
     }
 
     pub fn failed(job_type: &str, worker_url: &str, error: String) -> Self {
-        Self { job_type: job_type.to_string(), worker_url: worker_url.to_string(), status: "failed".to_string(), message: Some(error), timestamp: Self::now_ts() }
+        Self {
+            job_type: job_type.to_string(),
+            worker_url: worker_url.to_string(),
+            status: "failed".to_string(),
+            message: Some(error),
+            timestamp: Self::now_ts(),
+        }
     }
 }
 

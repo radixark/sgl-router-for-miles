@@ -1068,7 +1068,7 @@ impl Worker for DPAwareWorker {
     async fn prepare_request(&self, mut req: serde_json::Value) -> WorkerResult<serde_json::Value> {
         if let Some(map) = req.as_object_mut() {
             map.insert(
-                "data_parallel_rank".to_string(),
+                "routed_dp_rank".to_string(),
                 serde_json::json!(self.dp_rank),
             );
             Ok(req)
@@ -1245,6 +1245,8 @@ pub fn worker_to_info(worker: &Arc<dyn Worker>) -> WorkerInfo {
     WorkerInfo {
         id: url.to_string(),
         url: url.to_string(),
+        base_url: worker.base_url().to_string(),
+        dp_rank: worker.dp_rank(),
         model_id: model_id.to_string(),
         priority: worker.priority(),
         cost: worker.cost(),
@@ -1729,7 +1731,7 @@ mod tests {
 
         assert_eq!(prepared_req["prompt"], "Hello");
         assert_eq!(prepared_req["max_tokens"], 100);
-        assert_eq!(prepared_req["data_parallel_rank"], 3);
+        assert_eq!(prepared_req["routed_dp_rank"], 3);
     }
 
     #[tokio::test]
