@@ -1060,7 +1060,11 @@ impl PDRouter {
             match prefill_response.bytes().await {
                 Ok(body) => Some(body),
                 Err(e) => {
-                    warn!("Failed to read prefill response body for PD merge: {}", e);
+                    warn!(
+                        error = ?e,
+                        error_chain = %format_error_chain(&e),
+                        "Failed to read prefill response body for PD merge"
+                    );
                     None
                 }
             }
@@ -1069,7 +1073,11 @@ impl PDRouter {
             debug!("Consuming prefill response body (no PD merge requested)");
             match prefill_response.bytes().await {
                 Ok(_) => debug!("Prefill response consumed successfully"),
-                Err(e) => warn!("Error consuming prefill response: {}", e),
+                Err(e) => warn!(
+                    error = ?e,
+                    error_chain = %format_error_chain(&e),
+                    "Error consuming prefill response"
+                ),
             }
             None
         };
