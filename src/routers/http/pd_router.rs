@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Instant};
+use std::{error::Error as StdError, sync::Arc, time::Instant};
 
 use async_trait::async_trait;
 use axum::{
@@ -74,6 +74,15 @@ impl PDRequestContext<'_> {
     }
 }
 
+fn format_error_chain(error: &(dyn StdError + 'static)) -> String {
+    let mut messages = vec![error.to_string()];
+    let mut source = error.source();
+    while let Some(error) = source {
+        messages.push(error.to_string());
+        source = error.source();
+    }
+    messages.join(": ")
+}
 impl PDRouter {
     async fn proxy_to_first_prefill_worker(
         &self,
@@ -1512,8 +1521,49 @@ impl RouterTrait for PDRouter {
 
 #[cfg(test)]
 mod tests {
+    use std::fmt;
+
     use super::*;
     use crate::core::{BasicWorkerBuilder, WorkerType};
+
+    #[derive(Debug)]
+    struct TestError {
+        message: &'static str,
+        source: Option<Box<TestError>>,
+    }
+
+    impl fmt::Display for TestError {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str(self.message)
+        }
+    }
+
+    impl StdError for TestError {
+        fn source(&self) -> Option<&(dyn StdError + 'static)> {
+            self.source
+                .as_deref()
+                .map(|source| source as &(dyn StdError + 'static))
+        }
+    }
+
+    #[test]
+    fn test_format_error_chain_includes_nested_transport_causes() {
+        let error = TestError {
+            message: "request failed",
+            source: Some(Box::new(TestError {
+                message: "connection closed",
+                source: Some(Box::new(TestError {
+                    message: "incomplete message",
+                    source: None,
+                })),
+            })),
+        };
+
+        assert_eq!(
+            format_error_chain(&error),
+            "request failed: connection closed: incomplete message"
+        );
+    }
 
     fn create_test_pd_router() -> PDRouter {
         let worker_registry = Arc::new(WorkerRegistry::new());
