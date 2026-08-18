@@ -607,10 +607,57 @@ impl PDRouter {
         }
         .emit();
 
-        let (prefill_result, decode_result) =
-            tokio::join!(prefill_request.send(), decode_request.send());
+        // Consume the prefill response as soon as it arrives. A non-streaming
+        // decode request may not return response headers until generation ends,
+        // so waiting for both send() futures before polling the prefill body can
+        // leave that body unread for minutes and let the transport go stale.
+        //
+        // Keep try_join semantics: if either side fails, cancel the other side
+        // immediately instead of leaving it waiting for a PD bootstrap that can
+        // never complete (see #831).
+        let prefill_future = async {
+            self.process_prefill_response(
+                prefill_request.send().await,
+                prefill.url(),
+                context.needs_prefill_json_merge(),
+            )
+            .await
+        };
+        let decode_future = async {
+            decode_request.send().await.map_err(|e| {
+                let error_url = e.url().map_or("<unknown>", reqwest::Url::as_str);
+                error!(
+                    error = ?e,
+                    error_chain = %format_error_chain(&e),
+                    url = error_url,
+                    side = "decode",
+                    is_builder = e.is_builder(),
+                    is_request = e.is_request(),
+                    is_connect = e.is_connect(),
+                    is_body = e.is_body(),
+                    is_decode = e.is_decode(),
+                    is_redirect = e.is_redirect(),
+                    is_timeout = e.is_timeout(),
+                    status = ?e.status(),
+                    "PD request transport error; one side failed and the other was aborted"
+                );
+                error::bad_gateway(
+                    "PD disaggregation request failed",
+                    format!("Decode transport error: {e}"),
+                )
+            })
+        };
+        let pd_result = tokio::try_join!(prefill_future, decode_future);
 
         events::RequestReceivedEvent {}.emit();
+
+        let (prefill_body, decode_result): (
+            Option<bytes::Bytes>,
+            Result<reqwest::Response, reqwest::Error>,
+        ) = match pd_result {
+            Ok(((_, prefill_body), decode_resp)) => (prefill_body, Ok(decode_resp)),
+            Err(error_response) => return error_response,
+        };
 
         // Process decode response
         match decode_result {
@@ -630,30 +677,6 @@ impl PDRouter {
                         .handle_decode_error_response(res, &context, prefill, decode)
                         .await;
                 }
-
-                // Process prefill response
-                let prefill_body = if context.needs_prefill_json_merge() {
-                    match self
-                        .process_prefill_response(
-                            prefill_result,
-                            prefill.url(),
-                            context.needs_prefill_json_merge(),
-                        )
-                        .await
-                    {
-                        Ok((_, body)) => body,
-                        Err(error_response) => return error_response,
-                    }
-                } else {
-                    // Even if we don't need logprobs, we should check prefill status
-                    match self
-                        .process_prefill_response(prefill_result, prefill.url(), false)
-                        .await
-                    {
-                        Ok((_, body)) => body,
-                        Err(error_response) => return error_response,
-                    }
-                };
 
                 if context.is_stream {
                     // Streaming response
@@ -993,9 +1016,19 @@ impl PDRouter {
             Ok(response) => response,
             Err(e) => {
                 error!(
-                    "Prefill server failed (CRITICAL) prefill_url={} error={}. Decode will timeout without prefill KV cache.",
-                    prefill_url,
-                    e
+                    error = ?e,
+                    error_chain = %format_error_chain(&e),
+                    url = prefill_url,
+                    side = "prefill",
+                    is_builder = e.is_builder(),
+                    is_request = e.is_request(),
+                    is_connect = e.is_connect(),
+                    is_body = e.is_body(),
+                    is_decode = e.is_decode(),
+                    is_redirect = e.is_redirect(),
+                    is_timeout = e.is_timeout(),
+                    status = ?e.status(),
+                    "PD request transport error; one side failed and the other was aborted"
                 );
 
                 // Return error immediately - don't wait for decode to timeout
@@ -1533,6 +1566,12 @@ mod tests {
 
     use super::*;
     use crate::core::{BasicWorkerBuilder, WorkerType};
+    use tokio::{
+        io::{AsyncReadExt, AsyncWriteExt},
+        net::{TcpListener, TcpStream},
+        sync::oneshot,
+        time::{timeout, Duration},
+    };
 
     #[derive(Debug)]
     struct TestError {
@@ -1571,6 +1610,117 @@ mod tests {
             format_error_chain(&error),
             "request failed: connection closed: incomplete message"
         );
+    }
+
+    async fn read_http_request_headers(stream: &mut TcpStream) {
+        let mut request = Vec::new();
+        let mut buffer = [0_u8; 4096];
+        loop {
+            let bytes_read = stream.read(&mut buffer).await.unwrap();
+            assert!(bytes_read > 0, "client closed before sending request headers");
+            request.extend_from_slice(&buffer[..bytes_read]);
+            if request.windows(4).any(|window| window == b"\r\n\r\n") {
+                return;
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_prefill_body_is_drained_before_decode_headers() {
+        const PREFILL_BODY_SIZE: usize = 8 * 1024 * 1024;
+
+        let prefill_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let prefill_addr = prefill_listener.local_addr().unwrap();
+        let decode_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let decode_addr = decode_listener.local_addr().unwrap();
+        let (prefill_body_sent, prefill_body_received) = oneshot::channel();
+
+        let prefill_server = tokio::spawn(async move {
+            let (mut stream, _) = prefill_listener.accept().await.unwrap();
+            read_http_request_headers(&mut stream).await;
+            stream
+                .write_all(
+                    format!(
+                        "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\n\
+                         content-length: {PREFILL_BODY_SIZE}\r\nconnection: close\r\n\r\n"
+                    )
+                    .as_bytes(),
+                )
+                .await
+                .unwrap();
+
+            // Whitespace followed by an empty object is valid JSON. The body is
+            // deliberately larger than socket buffers so this write cannot
+            // finish unless the router polls and drains the response body.
+            let whitespace = vec![b' '; PREFILL_BODY_SIZE - 2];
+            stream.write_all(&whitespace).await.unwrap();
+            stream.write_all(b"{}").await.unwrap();
+            prefill_body_sent.send(()).unwrap();
+        });
+
+        let decode_server = tokio::spawn(async move {
+            let (mut stream, _) = decode_listener.accept().await.unwrap();
+            read_http_request_headers(&mut stream).await;
+            prefill_body_received.await.unwrap();
+            let body = br#"{"meta_info": {}}"#;
+            stream
+                .write_all(
+                    format!(
+                        "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\n\
+                         content-length: {}\r\nconnection: close\r\n\r\n",
+                        body.len()
+                    )
+                    .as_bytes(),
+                )
+                .await
+                .unwrap();
+            stream.write_all(body).await.unwrap();
+        });
+
+        let router = create_test_pd_router();
+        let prefill: Arc<dyn Worker> = Arc::new(
+            BasicWorkerBuilder::new(format!("http://{prefill_addr}"))
+                .worker_type(WorkerType::Prefill {
+                    bootstrap_port: Some(8998),
+                })
+                .build(),
+        );
+        let decode: Arc<dyn Worker> = Arc::new(
+            BasicWorkerBuilder::new(format!("http://{decode_addr}"))
+                .worker_type(WorkerType::Decode)
+                .build(),
+        );
+        let context = PDRequestContext {
+            route: "/generate",
+            batch_size: None,
+            is_stream: false,
+            return_logprob: true,
+            return_routed_experts: false,
+            request_text: None,
+            model_id: None,
+            headers: None,
+        };
+
+        let response = timeout(
+            Duration::from_secs(10),
+            router.execute_dual_dispatch_internal(
+                None,
+                json!({"input_ids": [1]}),
+                json!({"input_ids": [1]}),
+                context,
+                prefill,
+                decode,
+                Instant::now(),
+                None,
+                None,
+            ),
+        )
+        .await
+        .expect("PD dispatch deadlocked while the prefill response body was unread");
+
+        assert_eq!(response.status(), StatusCode::OK);
+        prefill_server.await.unwrap();
+        decode_server.await.unwrap();
     }
 
     fn create_test_pd_router() -> PDRouter {
