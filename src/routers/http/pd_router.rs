@@ -1706,13 +1706,10 @@ mod tests {
             router.execute_dual_dispatch_internal(
                 None,
                 json!({"input_ids": [1]}),
-                json!({"input_ids": [1]}),
                 context,
                 prefill,
                 decode,
                 Instant::now(),
-                None,
-                None,
             ),
         )
         .await
