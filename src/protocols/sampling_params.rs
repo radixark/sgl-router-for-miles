@@ -7,6 +7,9 @@ use super::common::StringOrArray;
 #[derive(Debug, Clone, Deserialize, Serialize, Default, Validate)]
 #[validate(schema(function = "validate_sampling_params"))]
 pub struct SamplingParams {
+    /// Extra parameters passed to the custom logit processor.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub custom_params: Option<serde_json::Value>,
     /// Temperature for sampling (must be >= 0.0, no upper limit)
     #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(range(min = 0.0))]
