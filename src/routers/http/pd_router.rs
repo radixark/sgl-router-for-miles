@@ -1172,10 +1172,24 @@ impl PDRouter {
     }
 
     fn merge_routed_experts_in_json(prefill_json: &Value, decode_json: &mut Value) -> bool {
-        let (Some(prefill_routed_experts), Some(decode_routed_experts)) = (
-            prefill_json.get("routed_experts").and_then(Value::as_str),
-            decode_json.get("routed_experts").and_then(Value::as_str),
-        ) else {
+        let Some(prefill_routed_experts) =
+            prefill_json.get("routed_experts").and_then(Value::as_str)
+        else {
+            return false;
+        };
+
+        let Some(decode_routed_experts) =
+            decode_json.get("routed_experts").and_then(Value::as_str)
+        else {
+            // Prefill may generate the final token, leaving decode with no
+            // forward pass and no expert rows to contribute.
+            if let Some(obj) = decode_json.as_object_mut() {
+                obj.insert(
+                    "routed_experts".to_string(),
+                    Value::String(prefill_routed_experts.to_string()),
+                );
+                return true;
+            }
             return false;
         };
 
