@@ -637,16 +637,39 @@ impl PDRouter {
         // Keep try_join semantics: if either side fails, cancel the other side
         // immediately instead of leaving it waiting for a PD bootstrap that can
         // never complete (see #831).
+        let (prefill_status_tx, prefill_status_rx) = tokio::sync::oneshot::channel();
         let prefill_future = async {
+            let prefill_result = prefill_request.send().await;
+            let succeeded = prefill_result
+                .as_ref()
+                .is_ok_and(|response| response.status().is_success());
+            let _ = prefill_status_tx.send(succeeded);
             self.process_prefill_response(
-                prefill_request.send().await,
+                prefill_result,
                 prefill.url(),
                 context.needs_prefill_json_merge(),
             )
             .await
         };
         let decode_future = async {
-            decode_request.send().await.map_err(|e| {
+            // Gate decode on the prefill status, so an error drops both an
+            // in-flight send and an already received decode response.
+            let prefill_ok = async {
+                if prefill_status_rx.await.unwrap_or(false) {
+                    Ok(())
+                } else {
+                    Err(None)
+                }
+            };
+            let decode_sent = async { decode_request.send().await.map_err(Some) };
+            let result = match tokio::try_join!(prefill_ok, decode_sent) {
+                Ok(((), response)) => Ok(response),
+                Err(Some(error)) => Err(error),
+                // Prefill failed. Let its outer future finish reading the
+                // error body and return the original status and message.
+                Err(None) => std::future::pending().await,
+            };
+            result.map_err(|e| {
                 let error_url = e.url().map_or("<unknown>", reqwest::Url::as_str);
                 error!(
                     error = ?e,
