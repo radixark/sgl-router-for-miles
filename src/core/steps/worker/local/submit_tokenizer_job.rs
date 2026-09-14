@@ -11,7 +11,7 @@ use crate::workflow::{StepExecutor, StepResult, WorkflowContext, WorkflowError, 
 use crate::{
     core::{
         steps::{workflow_data::LocalWorkerWorkflowData, TokenizerConfigRequest},
-        Job,
+        ConnectionMode, Job,
     },
     tokenizer::TokenizerRegistry,
 };
@@ -29,6 +29,10 @@ impl StepExecutor<LocalWorkerWorkflowData> for SubmitTokenizerJobStep {
         &self,
         context: &mut WorkflowContext<LocalWorkerWorkflowData>,
     ) -> WorkflowResult<StepResult> {
+        let connection_mode = context.data.connection_mode.as_ref().ok_or_else(|| {
+            WorkflowError::ContextValueNotFound("connection_mode".to_string())
+        })?;
+
         let labels = &context.data.final_labels;
         let app_context = context
             .data
@@ -64,15 +68,15 @@ impl StepExecutor<LocalWorkerWorkflowData> for SubmitTokenizerJobStep {
         for worker in workers.iter() {
             let model_id = worker.model_id().to_string();
 
-            // Get tokenizer path with fallback chain:
-            // 1. Worker labels: tokenizer_path
-            // 2. Worker labels: model_path
-            // 3. Router config (CLI args): --tokenizer-path
-            // 4. Router config (CLI args): --model-path
-            let tokenizer_path: String = if let Some(path) = labels
-                .get("tokenizer_path")
-                .or_else(|| labels.get("model_path"))
-            {
+            // HTTP worker paths may only exist on the backend. Use an explicitly
+            // configured path so the tokenizer remains available by model name.
+            let worker_path = match connection_mode {
+                ConnectionMode::Http => None,
+                ConnectionMode::Grpc { .. } => labels
+                    .get("tokenizer_path")
+                    .or_else(|| labels.get("model_path")),
+            };
+            let tokenizer_path: String = if let Some(path) = worker_path {
                 path.clone()
             } else if let Some(path) = app_context
                 .router_config
@@ -86,6 +90,13 @@ impl StepExecutor<LocalWorkerWorkflowData> for SubmitTokenizerJobStep {
                 );
                 path.clone()
             } else {
+                if matches!(connection_mode, ConnectionMode::Http) {
+                    info!(
+                        "Skipping automatic tokenizer registration for HTTP model {}",
+                        model_id
+                    );
+                    continue;
+                }
                 warn!(
                     "No tokenizer_path or model_path found for model {} (checked worker labels and router config)",
                     model_id
