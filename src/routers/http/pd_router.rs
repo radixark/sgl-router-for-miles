@@ -63,6 +63,8 @@ struct PDRequestContext<'a> {
     is_stream: bool,
     return_logprob: bool,
     return_routed_experts: bool,
+    prefill_rank: Option<i32>,
+    decode_rank: Option<i32>,
     request_text: Option<String>,
     model_id: Option<&'a str>,
     headers: Option<HeaderMap>,
@@ -564,7 +566,7 @@ impl PDRouter {
     async fn execute_dual_dispatch_internal(
         &self,
         headers: Option<&HeaderMap>,
-        json_request: Value,
+        mut json_request: Value,
         context: PDRequestContext<'_>,
         prefill: Arc<dyn Worker>,
         decode: Arc<dyn Worker>,
@@ -581,6 +583,16 @@ impl PDRouter {
         inject_trace_context_http(&mut headers_with_trace);
         let headers = Some(&headers_with_trace);
 
+        if context.route == "/generate" {
+            if let Some(request) = json_request.as_object_mut() {
+                request.remove("data_parallel_rank");
+                if let Some(rank) = context.prefill_rank {
+                    request.insert("routed_dp_rank".to_string(), Value::from(rank));
+                    request.insert("disagg_prefill_dp_rank".to_string(), Value::from(rank));
+                }
+            }
+        }
+
         // Build both requests
         let prefill_request = self.build_post_with_headers(
             &self.client,
@@ -590,6 +602,16 @@ impl PDRouter {
             headers,
             false,
         );
+        // The prefill body is serialized above, so only its rank needs changing for decode.
+        if context.decode_rank != context.prefill_rank {
+            if let Some(request) = json_request.as_object_mut() {
+                if let Some(rank) = context.decode_rank {
+                    request.insert("routed_dp_rank".to_string(), Value::from(rank));
+                } else {
+                    request.remove("routed_dp_rank");
+                }
+            }
+        }
         let decode_request = self.build_post_with_headers(
             &self.client,
             decode.url(),
@@ -1421,6 +1443,7 @@ impl RouterTrait for PDRouter {
         };
 
         let batch_size = Self::get_generate_batch_size(body);
+        let legacy_rank = body.routed_dp_rank.or(body.data_parallel_rank);
 
         let context = PDRequestContext {
             route: "/generate",
@@ -1428,6 +1451,8 @@ impl RouterTrait for PDRouter {
             is_stream,
             return_logprob,
             return_routed_experts: body.return_routed_experts,
+            prefill_rank: body.routed_prefill_dp_rank.or(legacy_rank),
+            decode_rank: body.routed_decode_dp_rank.or(legacy_rank),
             request_text,
             model_id,
             headers: headers.cloned(),
@@ -1471,6 +1496,8 @@ impl RouterTrait for PDRouter {
             is_stream,
             return_logprob,
             return_routed_experts: body.return_routed_experts,
+            prefill_rank: None,
+            decode_rank: None,
             request_text,
             model_id,
             headers: headers.cloned(),
@@ -1506,6 +1533,8 @@ impl RouterTrait for PDRouter {
             is_stream,
             return_logprob,
             return_routed_experts: body.return_routed_experts,
+            prefill_rank: None,
+            decode_rank: None,
             request_text,
             model_id,
             headers: headers.cloned(),
@@ -1533,6 +1562,8 @@ impl RouterTrait for PDRouter {
             is_stream: false,
             return_logprob: false,
             return_routed_experts: false,
+            prefill_rank: None,
+            decode_rank: None,
             request_text: req_text,
             model_id,
             headers: headers.cloned(),
@@ -1710,6 +1741,8 @@ mod tests {
             is_stream: false,
             return_logprob: true,
             return_routed_experts: false,
+            prefill_rank: None,
+            decode_rank: None,
             request_text: None,
             model_id: None,
             headers: None,

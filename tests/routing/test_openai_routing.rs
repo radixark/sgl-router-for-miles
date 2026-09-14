@@ -631,6 +631,8 @@ async fn test_unsupported_endpoints() {
         bootstrap_room: None,
         bootstrap_pair_key: None,
         routed_dp_rank: None,
+        routed_prefill_dp_rank: None,
+        routed_decode_dp_rank: None,
         disagg_prefill_dp_rank: None,
         data_parallel_rank: None,
         routing_key: None,
