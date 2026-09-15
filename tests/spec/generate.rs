@@ -5,6 +5,7 @@ use smg::protocols::generate::GenerateRequest;
 fn test_generate_extension_fields_roundtrip() {
     let json_with_extensions = json!({
         "text": "Hello world",
+        "lora_backfill_paths": {"adapter@1": "/shared/adapter"},
         "return_hidden_states": true,
         "return_routed_experts": true,
         "routed_experts_start_len": 10,
@@ -34,6 +35,10 @@ fn test_generate_extension_fields_roundtrip() {
     assert_eq!(req.min_dynamic_patch, Some(1));
 
     let serialized = serde_json::to_value(&req).expect("should serialize");
+    assert_eq!(
+        serialized["lora_backfill_paths"],
+        json!({"adapter@1": "/shared/adapter"})
+    );
     assert_eq!(serialized["return_hidden_states"], true);
     assert_eq!(serialized["return_routed_experts"], true);
     assert_eq!(serialized["routed_experts_start_len"], 10);
@@ -54,8 +59,7 @@ fn test_generate_extension_fields_defaults() {
         "stream": false
     });
 
-    let req: GenerateRequest =
-        serde_json::from_value(json_minimal).expect("should deserialize");
+    let req: GenerateRequest = serde_json::from_value(json_minimal).expect("should deserialize");
     assert!(!req.return_hidden_states);
     assert!(!req.return_routed_experts);
     assert_eq!(req.routed_experts_start_len, 0);
@@ -76,13 +80,17 @@ fn test_generate_optional_fields_omitted_when_none() {
         "stream": false
     });
 
-    let req: GenerateRequest =
-        serde_json::from_value(json_minimal).expect("should deserialize");
+    let req: GenerateRequest = serde_json::from_value(json_minimal).expect("should deserialize");
     let serialized = serde_json::to_value(&req).expect("should serialize");
 
     let omitted = [
-        "routed_dp_rank", "disagg_prefill_dp_rank", "data_parallel_rank",
-        "routing_key", "max_dynamic_patch", "min_dynamic_patch",
+        "routed_dp_rank",
+        "disagg_prefill_dp_rank",
+        "data_parallel_rank",
+        "routing_key",
+        "max_dynamic_patch",
+        "min_dynamic_patch",
+        "lora_backfill_paths",
     ];
     for field in omitted {
         assert!(
