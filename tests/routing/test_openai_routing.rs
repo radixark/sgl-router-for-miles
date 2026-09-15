@@ -624,6 +624,7 @@ async fn test_unsupported_endpoints() {
         modalities: None,
         session_params: None,
         lora_path: None,
+        lora_backfill_paths: None,
         lora_id: None,
         custom_logit_processor: None,
         bootstrap_host: None,

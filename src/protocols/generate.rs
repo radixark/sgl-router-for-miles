@@ -122,6 +122,9 @@ pub struct GenerateRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub lora_path: Option<String>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lora_backfill_paths: Option<HashMap<String, String>>,
+
     /// LoRA adapter ID (if pre-loaded)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub lora_id: Option<String>,
