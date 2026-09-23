@@ -618,6 +618,7 @@ async fn test_unsupported_endpoints() {
         return_hidden_states: false,
         return_routed_experts: false,
         return_sampling_mask: None,
+        return_indexer_topk: false,
         routed_experts_start_len: 0,
         return_prompt_token_ids: false,
         require_reasoning: false,
@@ -694,6 +695,61 @@ async fn test_openai_router_chat_completion_with_mock() {
     assert_eq!(chat_response["object"], "chat.completion");
     assert_eq!(chat_response["model"], "gpt-3.5-turbo");
     assert!(!chat_response["choices"].as_array().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn test_openai_router_forwards_return_sampling_mask() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let received = Arc::new(tokio::sync::Mutex::new(None));
+    let app = Router::new().route(
+        "/v1/chat/completions",
+        post({
+            let received = received.clone();
+            move |Json(request): Json<serde_json::Value>| {
+                let received = received.clone();
+                async move {
+                    *received.lock().await = Some(request);
+                    Json(json!({
+                        "id": "chatcmpl-sampling-mask",
+                        "object": "chat.completion",
+                        "created": 1_700_000_000,
+                        "model": "test-model",
+                        "choices": [{
+                            "index": 0,
+                            "message": {"role": "assistant", "content": "ok"},
+                            "finish_reason": "stop"
+                        }]
+                    }))
+                }
+            }
+        }),
+    );
+    let server = tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
+
+    let ctx = crate::common::test_app::create_test_app_context().await;
+    crate::common::test_app::register_external_worker(
+        &ctx,
+        &format!("http://{addr}"),
+        Some(vec!["test-model"]),
+    );
+    let router = OpenAIRouter::new(&ctx).await.unwrap();
+    let mut request = create_minimal_chat_request();
+    request.model = "test-model".to_string();
+    request.return_sampling_mask = true;
+
+    let response = router.route_chat(None, &request, None).await;
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let forwarded = received
+        .lock()
+        .await
+        .take()
+        .expect("worker received request");
+    assert_eq!(forwarded["return_sampling_mask"], true);
+    server.abort();
 }
 
 /// Test full E2E flow with Axum server

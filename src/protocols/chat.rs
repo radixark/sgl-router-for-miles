@@ -360,6 +360,10 @@ pub struct ChatCompletionRequest {
     #[serde(default)]
     pub return_routed_experts: bool,
 
+    /// Return token sampling masks in response metadata (SGLang extension)
+    #[serde(default)]
+    pub return_sampling_mask: bool,
+
     /// Absolute start position for returned routed experts (SGLang extension)
     #[serde(default)]
     pub routed_experts_start_len: i32,
