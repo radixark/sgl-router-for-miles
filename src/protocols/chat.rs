@@ -369,6 +369,11 @@ pub struct ChatCompletionRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sampling_logprobs_mode: Option<String>,
 
+    /// Return routed experts, indexer top-k and sampling masks through the
+    /// server's output store instead of inline in meta_info (SGLang extension)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub return_outputs_via_store: Option<bool>,
+
     /// Absolute start position for returned routed experts (SGLang extension)
     #[serde(default)]
     pub routed_experts_start_len: i32,

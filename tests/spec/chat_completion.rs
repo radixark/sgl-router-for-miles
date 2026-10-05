@@ -580,6 +580,7 @@ fn test_sglang_extension_fields_roundtrip() {
         "return_routed_experts": true,
         "return_sampling_mask": true,
         "sampling_logprobs_mode": "support",
+        "return_outputs_via_store": true,
         "routed_experts_start_len": 10,
         "return_cached_tokens_details": true,
         "return_prompt_token_ids": true,
@@ -608,6 +609,7 @@ fn test_sglang_extension_fields_roundtrip() {
     assert!(req.return_routed_experts);
     assert!(req.return_sampling_mask);
     assert_eq!(req.sampling_logprobs_mode.as_deref(), Some("support"));
+    assert_eq!(req.return_outputs_via_store, Some(true));
     assert_eq!(req.routed_experts_start_len, 10);
     assert!(req.return_cached_tokens_details);
     assert!(req.return_prompt_token_ids);
@@ -625,6 +627,7 @@ fn test_sglang_extension_fields_roundtrip() {
     assert_eq!(serialized["return_routed_experts"], true);
     assert_eq!(serialized["return_sampling_mask"], true);
     assert_eq!(serialized["sampling_logprobs_mode"], "support");
+    assert_eq!(serialized["return_outputs_via_store"], true);
     assert_eq!(serialized["routed_experts_start_len"], 10);
     assert_eq!(serialized["return_cached_tokens_details"], true);
     assert_eq!(serialized["return_prompt_token_ids"], true);
@@ -660,6 +663,7 @@ fn test_sglang_extension_fields_default_values() {
     assert!(!req.return_routed_experts);
     assert!(!req.return_sampling_mask);
     assert!(req.sampling_logprobs_mode.is_none());
+    assert!(req.return_outputs_via_store.is_none());
     assert_eq!(req.routed_experts_start_len, 0);
     assert!(!req.return_cached_tokens_details);
     assert!(!req.return_prompt_token_ids);
@@ -700,6 +704,7 @@ fn test_sglang_optional_fields_omitted_when_none() {
         "priority", "bootstrap_host", "bootstrap_port", "bootstrap_room",
         "routed_dp_rank", "disagg_prefill_dp_rank", "data_parallel_rank",
         "sampling_logprobs_mode",
+        "return_outputs_via_store",
     ];
     for field in omitted {
         assert!(
