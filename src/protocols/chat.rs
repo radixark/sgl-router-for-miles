@@ -369,6 +369,14 @@ pub struct ChatCompletionRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sampling_logprobs_mode: Option<String>,
 
+    /// Return output top logprobs as flat arrays in response metadata (SGLang extension)
+    #[serde(default)]
+    pub return_flat_raw_output_top_logprobs: bool,
+
+    /// Base64-encode the flat top logprob arrays (SGLang extension); unset keeps SGLang's default
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub return_flat_raw_top_logprobs_b64: Option<bool>,
+
     /// Absolute start position for returned routed experts (SGLang extension)
     #[serde(default)]
     pub routed_experts_start_len: i32,
