@@ -580,6 +580,8 @@ fn test_sglang_extension_fields_roundtrip() {
         "return_routed_experts": true,
         "return_sampling_mask": true,
         "sampling_logprobs_mode": "support",
+        "return_flat_raw_output_top_logprobs": true,
+        "return_flat_raw_top_logprobs_b64": true,
         "routed_experts_start_len": 10,
         "return_cached_tokens_details": true,
         "return_prompt_token_ids": true,
@@ -608,6 +610,8 @@ fn test_sglang_extension_fields_roundtrip() {
     assert!(req.return_routed_experts);
     assert!(req.return_sampling_mask);
     assert_eq!(req.sampling_logprobs_mode.as_deref(), Some("support"));
+    assert!(req.return_flat_raw_output_top_logprobs);
+    assert_eq!(req.return_flat_raw_top_logprobs_b64, Some(true));
     assert_eq!(req.routed_experts_start_len, 10);
     assert!(req.return_cached_tokens_details);
     assert!(req.return_prompt_token_ids);
@@ -625,6 +629,8 @@ fn test_sglang_extension_fields_roundtrip() {
     assert_eq!(serialized["return_routed_experts"], true);
     assert_eq!(serialized["return_sampling_mask"], true);
     assert_eq!(serialized["sampling_logprobs_mode"], "support");
+    assert_eq!(serialized["return_flat_raw_output_top_logprobs"], true);
+    assert_eq!(serialized["return_flat_raw_top_logprobs_b64"], true);
     assert_eq!(serialized["routed_experts_start_len"], 10);
     assert_eq!(serialized["return_cached_tokens_details"], true);
     assert_eq!(serialized["return_prompt_token_ids"], true);
@@ -660,6 +666,8 @@ fn test_sglang_extension_fields_default_values() {
     assert!(!req.return_routed_experts);
     assert!(!req.return_sampling_mask);
     assert!(req.sampling_logprobs_mode.is_none());
+    assert!(!req.return_flat_raw_output_top_logprobs);
+    assert!(req.return_flat_raw_top_logprobs_b64.is_none());
     assert_eq!(req.routed_experts_start_len, 0);
     assert!(!req.return_cached_tokens_details);
     assert!(!req.return_prompt_token_ids);
@@ -680,6 +688,10 @@ fn test_sglang_extension_fields_default_values() {
     assert!(req.routed_dp_rank.is_none());
     assert!(req.disagg_prefill_dp_rank.is_none());
     assert!(req.data_parallel_rank.is_none());
+
+    // An omitted b64 flag must stay omitted so SGLang's chat default applies.
+    let serialized = serde_json::to_value(&req).expect("should serialize");
+    assert!(serialized.get("return_flat_raw_top_logprobs_b64").is_none());
 }
 
 #[test]
