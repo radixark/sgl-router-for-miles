@@ -12,6 +12,7 @@ fn test_generate_extension_fields_roundtrip() {
         "return_outputs_via_store": true,
         "routed_experts_start_len": 10,
         "return_prompt_token_ids": true,
+        "mm_token_expansion_start_len": 122,
         "require_reasoning": true,
         "routed_dp_rank": 2,
         "disagg_prefill_dp_rank": 1,
@@ -30,6 +31,7 @@ fn test_generate_extension_fields_roundtrip() {
     assert_eq!(req.return_outputs_via_store, Some(true));
     assert_eq!(req.routed_experts_start_len, 10);
     assert!(req.return_prompt_token_ids);
+    assert_eq!(req.mm_token_expansion_start_len, Some(json!(122)));
     assert!(req.require_reasoning);
     assert_eq!(req.routed_dp_rank, Some(2));
     assert_eq!(req.disagg_prefill_dp_rank, Some(1));
@@ -49,6 +51,7 @@ fn test_generate_extension_fields_roundtrip() {
     assert_eq!(serialized["return_outputs_via_store"], true);
     assert_eq!(serialized["routed_experts_start_len"], 10);
     assert_eq!(serialized["return_prompt_token_ids"], true);
+    assert_eq!(serialized["mm_token_expansion_start_len"], 122);
     assert_eq!(serialized["require_reasoning"], true);
     assert_eq!(serialized["routed_dp_rank"], 2);
     assert_eq!(serialized["disagg_prefill_dp_rank"], 1);
@@ -72,6 +75,7 @@ fn test_generate_extension_fields_defaults() {
     assert!(req.return_outputs_via_store.is_none());
     assert_eq!(req.routed_experts_start_len, 0);
     assert!(!req.return_prompt_token_ids);
+    assert!(req.mm_token_expansion_start_len.is_none());
     assert!(!req.require_reasoning);
     assert!(req.routed_dp_rank.is_none());
     assert!(req.disagg_prefill_dp_rank.is_none());
@@ -101,6 +105,7 @@ fn test_generate_optional_fields_omitted_when_none() {
         "lora_backfill_paths",
         "sampling_logprobs_mode",
         "return_outputs_via_store",
+        "mm_token_expansion_start_len",
     ];
     for field in omitted {
         assert!(
