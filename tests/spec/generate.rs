@@ -11,6 +11,7 @@ fn test_generate_extension_fields_roundtrip() {
         "sampling_logprobs_mode": "support",
         "return_outputs_via_store": true,
         "routed_experts_start_len": 10,
+        "routed_experts_session_key": "session-abc",
         "return_prompt_token_ids": true,
         "mm_token_expansion_start_len": 122,
         "require_reasoning": true,
@@ -30,6 +31,10 @@ fn test_generate_extension_fields_roundtrip() {
     assert_eq!(req.sampling_logprobs_mode.as_deref(), Some("support"));
     assert_eq!(req.return_outputs_via_store, Some(true));
     assert_eq!(req.routed_experts_start_len, 10);
+    assert_eq!(
+        req.routed_experts_session_key.as_deref(),
+        Some("session-abc")
+    );
     assert!(req.return_prompt_token_ids);
     assert_eq!(req.mm_token_expansion_start_len, Some(json!(122)));
     assert!(req.require_reasoning);
@@ -50,6 +55,7 @@ fn test_generate_extension_fields_roundtrip() {
     assert_eq!(serialized["sampling_logprobs_mode"], "support");
     assert_eq!(serialized["return_outputs_via_store"], true);
     assert_eq!(serialized["routed_experts_start_len"], 10);
+    assert_eq!(serialized["routed_experts_session_key"], "session-abc");
     assert_eq!(serialized["return_prompt_token_ids"], true);
     assert_eq!(serialized["mm_token_expansion_start_len"], 122);
     assert_eq!(serialized["require_reasoning"], true);
@@ -74,6 +80,7 @@ fn test_generate_extension_fields_defaults() {
     assert!(req.sampling_logprobs_mode.is_none());
     assert!(req.return_outputs_via_store.is_none());
     assert_eq!(req.routed_experts_start_len, 0);
+    assert!(req.routed_experts_session_key.is_none());
     assert!(!req.return_prompt_token_ids);
     assert!(req.mm_token_expansion_start_len.is_none());
     assert!(!req.require_reasoning);
@@ -106,6 +113,7 @@ fn test_generate_optional_fields_omitted_when_none() {
         "sampling_logprobs_mode",
         "return_outputs_via_store",
         "mm_token_expansion_start_len",
+        "routed_experts_session_key",
     ];
     for field in omitted {
         assert!(

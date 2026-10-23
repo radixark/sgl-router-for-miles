@@ -31,6 +31,7 @@ const SGLANG_FIELDS: &[&str] = &[
     "return_hidden_states",
     "return_routed_experts",
     "routed_experts_start_len",
+    "routed_experts_session_key",
     "return_cached_tokens_details",
     "return_prompt_token_ids",
     "return_meta_info",

@@ -111,6 +111,10 @@ pub struct GenerateRequest {
     #[serde(default)]
     pub routed_experts_start_len: i32,
 
+    /// Session key for routed-experts forcing
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub routed_experts_session_key: Option<String>,
+
     /// Return indexer topk indices (DSA/NSA models)
     #[serde(default)]
     pub return_indexer_topk: bool,
