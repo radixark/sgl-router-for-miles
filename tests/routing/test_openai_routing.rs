@@ -622,6 +622,7 @@ async fn test_unsupported_endpoints() {
         return_outputs_via_store: None,
         return_indexer_topk: false,
         routed_experts_start_len: 0,
+        routed_experts_session_key: None,
         return_prompt_token_ids: false,
         mm_token_expansion_start_len: None,
         require_reasoning: false,

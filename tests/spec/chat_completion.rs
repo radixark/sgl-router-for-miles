@@ -584,6 +584,7 @@ fn test_sglang_extension_fields_roundtrip() {
         "return_flat_raw_output_top_logprobs": true,
         "return_flat_raw_top_logprobs_b64": true,
         "routed_experts_start_len": 10,
+        "routed_experts_session_key": "session-abc",
         "return_cached_tokens_details": true,
         "return_prompt_token_ids": true,
         "return_meta_info": true,
@@ -615,6 +616,10 @@ fn test_sglang_extension_fields_roundtrip() {
     assert!(req.return_flat_raw_output_top_logprobs);
     assert_eq!(req.return_flat_raw_top_logprobs_b64, Some(true));
     assert_eq!(req.routed_experts_start_len, 10);
+    assert_eq!(
+        req.routed_experts_session_key.as_deref(),
+        Some("session-abc")
+    );
     assert!(req.return_cached_tokens_details);
     assert!(req.return_prompt_token_ids);
     assert!(req.return_meta_info);
@@ -635,6 +640,7 @@ fn test_sglang_extension_fields_roundtrip() {
     assert_eq!(serialized["return_flat_raw_output_top_logprobs"], true);
     assert_eq!(serialized["return_flat_raw_top_logprobs_b64"], true);
     assert_eq!(serialized["routed_experts_start_len"], 10);
+    assert_eq!(serialized["routed_experts_session_key"], "session-abc");
     assert_eq!(serialized["return_cached_tokens_details"], true);
     assert_eq!(serialized["return_prompt_token_ids"], true);
     assert_eq!(serialized["return_meta_info"], true);
@@ -673,6 +679,7 @@ fn test_sglang_extension_fields_default_values() {
     assert!(!req.return_flat_raw_output_top_logprobs);
     assert!(req.return_flat_raw_top_logprobs_b64.is_none());
     assert_eq!(req.routed_experts_start_len, 0);
+    assert!(req.routed_experts_session_key.is_none());
     assert!(!req.return_cached_tokens_details);
     assert!(!req.return_prompt_token_ids);
     assert!(!req.return_meta_info);
@@ -717,6 +724,7 @@ fn test_sglang_optional_fields_omitted_when_none() {
         "routed_dp_rank", "disagg_prefill_dp_rank", "data_parallel_rank",
         "sampling_logprobs_mode",
         "return_outputs_via_store",
+        "routed_experts_session_key",
     ];
     for field in omitted {
         assert!(
