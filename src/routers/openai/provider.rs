@@ -33,6 +33,7 @@ const SGLANG_FIELDS: &[&str] = &[
     "routed_experts_start_len",
     "return_cached_tokens_details",
     "return_prompt_token_ids",
+    "mm_token_expansion_start_len",
     "return_meta_info",
     "input_ids",
     "stop_regex",

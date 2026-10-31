@@ -586,6 +586,7 @@ fn test_sglang_extension_fields_roundtrip() {
         "routed_experts_start_len": 10,
         "return_cached_tokens_details": true,
         "return_prompt_token_ids": true,
+        "mm_token_expansion_start_len": 122,
         "return_meta_info": true,
         "input_ids": [1, 2, 3, 42, 100],
         "stop_regex": ["\\d+", "end"],
@@ -617,6 +618,7 @@ fn test_sglang_extension_fields_roundtrip() {
     assert_eq!(req.routed_experts_start_len, 10);
     assert!(req.return_cached_tokens_details);
     assert!(req.return_prompt_token_ids);
+    assert_eq!(req.mm_token_expansion_start_len, Some(json!(122)));
     assert!(req.return_meta_info);
     assert_eq!(req.input_ids, Some(vec![1, 2, 3, 42, 100]));
     assert_eq!(req.max_dynamic_patch, Some(12));
@@ -637,6 +639,7 @@ fn test_sglang_extension_fields_roundtrip() {
     assert_eq!(serialized["routed_experts_start_len"], 10);
     assert_eq!(serialized["return_cached_tokens_details"], true);
     assert_eq!(serialized["return_prompt_token_ids"], true);
+    assert_eq!(serialized["mm_token_expansion_start_len"], 122);
     assert_eq!(serialized["return_meta_info"], true);
     assert_eq!(serialized["input_ids"], json!([1, 2, 3, 42, 100]));
     assert_eq!(serialized["stop_regex"], json!(["\\d+", "end"]));
@@ -675,6 +678,7 @@ fn test_sglang_extension_fields_default_values() {
     assert_eq!(req.routed_experts_start_len, 0);
     assert!(!req.return_cached_tokens_details);
     assert!(!req.return_prompt_token_ids);
+    assert!(req.mm_token_expansion_start_len.is_none());
     assert!(!req.return_meta_info);
     assert!(req.input_ids.is_none());
     assert!(req.stop_regex.is_none());
@@ -717,6 +721,7 @@ fn test_sglang_optional_fields_omitted_when_none() {
         "routed_dp_rank", "disagg_prefill_dp_rank", "data_parallel_rank",
         "sampling_logprobs_mode",
         "return_outputs_via_store",
+        "mm_token_expansion_start_len",
     ];
     for field in omitted {
         assert!(
@@ -740,4 +745,27 @@ fn test_top_logprobs_accepts_up_to_128() {
         assert_eq!(req.validate().is_ok(), valid, "top_logprobs={count}");
         assert_eq!(serde_json::to_value(&req).unwrap()["top_logprobs"], count);
     }
+}
+
+#[test]
+fn test_mm_token_expansion_start_len_forwarded() {
+    // The router re-serializes the typed request, so a field missing from the
+    // struct would be dropped before it reaches SGLang.
+    let with_list: ChatCompletionRequest = serde_json::from_value(json!({
+        "model": "test-model",
+        "messages": [{"role": "user", "content": "hello"}],
+        "input_ids": [1, 2, 3],
+        "mm_token_expansion_start_len": [577, 0]
+    }))
+    .expect("should deserialize");
+    let serialized = serde_json::to_value(&with_list).expect("should serialize");
+    assert_eq!(serialized["mm_token_expansion_start_len"], json!([577, 0]));
+
+    let absent: ChatCompletionRequest = serde_json::from_value(json!({
+        "model": "test-model",
+        "messages": [{"role": "user", "content": "hello"}]
+    }))
+    .expect("should deserialize");
+    let serialized = serde_json::to_value(&absent).expect("should serialize");
+    assert!(serialized.get("mm_token_expansion_start_len").is_none());
 }

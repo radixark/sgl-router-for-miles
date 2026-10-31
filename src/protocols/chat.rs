@@ -394,6 +394,11 @@ pub struct ChatCompletionRequest {
     #[serde(default)]
     pub return_prompt_token_ids: bool,
 
+    /// Length of the already expanded input_ids prefix; only media placeholders
+    /// after it are expanded (SGLang extension). An int, or a list for a batch request
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mm_token_expansion_start_len: Option<Value>,
+
     /// Return meta info in response (SGLang extension)
     #[serde(default)]
     pub return_meta_info: bool,
