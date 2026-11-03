@@ -107,6 +107,11 @@ pub struct GenerateRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub return_outputs_via_store: Option<bool>,
 
+    /// Layer ids at which the output store splits routed experts and indexer
+    /// top-k into separate parts, so each pipeline stage reads only its layers
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub replay_layer_splits: Option<Vec<i32>>,
+
     /// Absolute start position for returned routed experts
     #[serde(default)]
     pub routed_experts_start_len: i32,

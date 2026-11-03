@@ -620,6 +620,7 @@ async fn test_unsupported_endpoints() {
         return_sampling_mask: None,
         sampling_logprobs_mode: None,
         return_outputs_via_store: None,
+        replay_layer_splits: None,
         return_indexer_topk: false,
         routed_experts_start_len: 0,
         return_prompt_token_ids: false,
