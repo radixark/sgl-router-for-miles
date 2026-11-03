@@ -374,6 +374,12 @@ pub struct ChatCompletionRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub return_outputs_via_store: Option<bool>,
 
+    /// Layer ids at which the output store splits routed experts and indexer
+    /// top-k into separate parts, so each pipeline stage reads only its layers
+    /// (SGLang extension)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub replay_layer_splits: Option<Vec<i32>>,
+
     /// Return output top logprobs as flat arrays in response metadata (SGLang extension)
     #[serde(default)]
     pub return_flat_raw_output_top_logprobs: bool,
