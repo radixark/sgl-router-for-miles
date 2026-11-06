@@ -928,7 +928,7 @@ pub async fn startup(config: ServerConfig) -> Result<(), Box<dyn std::error::Err
 
     if let Some(ref load_monitor) = app_context.load_monitor {
         load_monitor.start().await;
-        debug!("Started LoadMonitor for PowerOfTwo policies");
+        debug!("Started LoadMonitor for load-aware policies");
     }
 
     let (limiter, processor) = middleware::ConcurrencyLimiter::new(
