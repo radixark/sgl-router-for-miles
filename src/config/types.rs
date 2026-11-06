@@ -384,6 +384,34 @@ pub enum ManualAssignmentMode {
     MinGroup,
 }
 
+/// Signal the capacity-aware policy uses to size each worker's share of requests
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CapacitySignal {
+    /// KV-cache capacity in tokens (`max_total_num_tokens` x `dp_size` from `/get_server_info`)
+    #[default]
+    Kv,
+}
+
+impl CapacitySignal {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            CapacitySignal::Kv => "kv",
+        }
+    }
+}
+
+impl std::str::FromStr for CapacitySignal {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "kv" => Ok(CapacitySignal::Kv),
+            other => Err(format!("Unknown capacity signal: {}", other)),
+        }
+    }
+}
+
 /// Policy configuration for routing
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
@@ -405,6 +433,17 @@ pub enum PolicyConfig {
 
     #[serde(rename = "power_of_two")]
     PowerOfTwo { load_check_interval_secs: u64 },
+
+    /// Capacity-aware policy for pools of unequal workers (e.g. mixed GPU generations or vendors).
+    /// Routes to the worker with the fewest in-flight requests per unit of capacity, where
+    /// capacity comes from `capacity_signal`. Falls back to plain least-requests until every
+    /// healthy worker reports a capacity.
+    #[serde(rename = "capacity_aware")]
+    CapacityAware {
+        #[serde(default)]
+        capacity_signal: CapacitySignal,
+        load_check_interval_secs: u64,
+    },
 
     #[serde(rename = "bucket")]
     Bucket {
@@ -481,6 +520,7 @@ impl PolicyConfig {
             PolicyConfig::RoundRobin => "round_robin",
             PolicyConfig::CacheAware { .. } => "cache_aware",
             PolicyConfig::PowerOfTwo { .. } => "power_of_two",
+            PolicyConfig::CapacityAware { .. } => "capacity_aware",
             PolicyConfig::Bucket { .. } => "bucket",
             PolicyConfig::Manual { .. } => "manual",
             PolicyConfig::ConsistentHashing => "consistent_hashing",

@@ -1,9 +1,9 @@
 use crate::mcp::McpConfig;
 
 use super::{
-    CircuitBreakerConfig, ConfigError, ConfigResult, DiscoveryConfig, HealthCheckConfig,
-    HistoryBackend, MetricsConfig, OracleConfig, PolicyConfig, PostgresConfig, RedisConfig,
-    RetryConfig, RouterConfig, RoutingMode, TokenizerCacheConfig, TraceConfig,
+    CapacitySignal, CircuitBreakerConfig, ConfigError, ConfigResult, DiscoveryConfig,
+    HealthCheckConfig, HistoryBackend, MetricsConfig, OracleConfig, PolicyConfig, PostgresConfig,
+    RedisConfig, RetryConfig, RouterConfig, RoutingMode, TokenizerCacheConfig, TraceConfig,
 };
 use crate::core::ConnectionMode;
 
@@ -128,6 +128,18 @@ impl RouterConfigBuilder {
 
     pub fn power_of_two_policy(mut self, load_check_interval_secs: u64) -> Self {
         self.config.policy = PolicyConfig::PowerOfTwo {
+            load_check_interval_secs,
+        };
+        self
+    }
+
+    pub fn capacity_aware_policy(
+        mut self,
+        capacity_signal: CapacitySignal,
+        load_check_interval_secs: u64,
+    ) -> Self {
+        self.config.policy = PolicyConfig::CapacityAware {
+            capacity_signal,
             load_check_interval_secs,
         };
         self
