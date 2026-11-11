@@ -10,6 +10,7 @@ fn test_generate_extension_fields_roundtrip() {
         "return_routed_experts": true,
         "sampling_logprobs_mode": "support",
         "return_outputs_via_store": true,
+        "replay_layer_splits": [12, 24],
         "routed_experts_start_len": 10,
         "return_prompt_token_ids": true,
         "mm_token_expansion_start_len": 122,
@@ -29,6 +30,7 @@ fn test_generate_extension_fields_roundtrip() {
     assert!(req.return_routed_experts);
     assert_eq!(req.sampling_logprobs_mode.as_deref(), Some("support"));
     assert_eq!(req.return_outputs_via_store, Some(true));
+    assert_eq!(req.replay_layer_splits, Some(vec![12, 24]));
     assert_eq!(req.routed_experts_start_len, 10);
     assert!(req.return_prompt_token_ids);
     assert_eq!(req.mm_token_expansion_start_len, Some(json!(122)));
@@ -49,6 +51,7 @@ fn test_generate_extension_fields_roundtrip() {
     assert_eq!(serialized["return_routed_experts"], true);
     assert_eq!(serialized["sampling_logprobs_mode"], "support");
     assert_eq!(serialized["return_outputs_via_store"], true);
+    assert_eq!(serialized["replay_layer_splits"], json!([12, 24]));
     assert_eq!(serialized["routed_experts_start_len"], 10);
     assert_eq!(serialized["return_prompt_token_ids"], true);
     assert_eq!(serialized["mm_token_expansion_start_len"], 122);
@@ -73,6 +76,7 @@ fn test_generate_extension_fields_defaults() {
     assert!(!req.return_routed_experts);
     assert!(req.sampling_logprobs_mode.is_none());
     assert!(req.return_outputs_via_store.is_none());
+    assert!(req.replay_layer_splits.is_none());
     assert_eq!(req.routed_experts_start_len, 0);
     assert!(!req.return_prompt_token_ids);
     assert!(req.mm_token_expansion_start_len.is_none());
@@ -105,6 +109,7 @@ fn test_generate_optional_fields_omitted_when_none() {
         "lora_backfill_paths",
         "sampling_logprobs_mode",
         "return_outputs_via_store",
+        "replay_layer_splits",
         "mm_token_expansion_start_len",
     ];
     for field in omitted {

@@ -581,6 +581,7 @@ fn test_sglang_extension_fields_roundtrip() {
         "return_sampling_mask": true,
         "sampling_logprobs_mode": "support",
         "return_outputs_via_store": true,
+        "replay_layer_splits": [12, 24],
         "return_flat_raw_output_top_logprobs": true,
         "return_flat_raw_top_logprobs_b64": true,
         "routed_experts_start_len": 10,
@@ -613,6 +614,7 @@ fn test_sglang_extension_fields_roundtrip() {
     assert!(req.return_sampling_mask);
     assert_eq!(req.sampling_logprobs_mode.as_deref(), Some("support"));
     assert_eq!(req.return_outputs_via_store, Some(true));
+    assert_eq!(req.replay_layer_splits, Some(vec![12, 24]));
     assert!(req.return_flat_raw_output_top_logprobs);
     assert_eq!(req.return_flat_raw_top_logprobs_b64, Some(true));
     assert_eq!(req.routed_experts_start_len, 10);
@@ -634,6 +636,7 @@ fn test_sglang_extension_fields_roundtrip() {
     assert_eq!(serialized["return_sampling_mask"], true);
     assert_eq!(serialized["sampling_logprobs_mode"], "support");
     assert_eq!(serialized["return_outputs_via_store"], true);
+    assert_eq!(serialized["replay_layer_splits"], json!([12, 24]));
     assert_eq!(serialized["return_flat_raw_output_top_logprobs"], true);
     assert_eq!(serialized["return_flat_raw_top_logprobs_b64"], true);
     assert_eq!(serialized["routed_experts_start_len"], 10);
@@ -673,6 +676,7 @@ fn test_sglang_extension_fields_default_values() {
     assert!(!req.return_sampling_mask);
     assert!(req.sampling_logprobs_mode.is_none());
     assert!(req.return_outputs_via_store.is_none());
+    assert!(req.replay_layer_splits.is_none());
     assert!(!req.return_flat_raw_output_top_logprobs);
     assert!(req.return_flat_raw_top_logprobs_b64.is_none());
     assert_eq!(req.routed_experts_start_len, 0);
@@ -722,6 +726,7 @@ fn test_sglang_optional_fields_omitted_when_none() {
         "sampling_logprobs_mode",
         "return_outputs_via_store",
         "mm_token_expansion_start_len",
+        "replay_layer_splits",
     ];
     for field in omitted {
         assert!(
