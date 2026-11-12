@@ -102,6 +102,22 @@ pub struct GenerateRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sampling_logprobs_mode: Option<String>,
 
+    /// Return output top logprobs as flat arrays in response metadata
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub return_flat_raw_output_top_logprobs: Option<bool>,
+
+    /// Base64-encode the flat top logprob arrays
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub return_flat_raw_top_logprobs_b64: Option<bool>,
+
+    /// Return sampling masks as flat arrays in response metadata
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub return_flat_raw_sampling_mask: Option<bool>,
+
+    /// Base64-encode the flat sampling mask arrays
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub return_flat_raw_sampling_mask_b64: Option<bool>,
+
     /// Return routed experts, indexer top-k and sampling masks through the
     /// server's output store instead of inline in meta_info
     #[serde(skip_serializing_if = "Option::is_none")]
