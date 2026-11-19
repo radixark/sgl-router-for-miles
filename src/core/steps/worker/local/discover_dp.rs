@@ -18,9 +18,8 @@ pub struct DpInfo {
 pub async fn get_dp_info(url: &str, api_key: Option<&str>) -> Result<DpInfo, String> {
     let info = get_server_info(url, api_key).await?;
 
-    let dp_size = info
-        .dp_size
-        .ok_or_else(|| format!("No dp_size in response from {}", url))?;
+    let dp_size = routing_dp_size(info.dp_size, info.attn_dp_size)
+        .map_err(|e| format!("{} in response from {}", e, url))?;
 
     let model_id = info
         .model_id
@@ -33,6 +32,20 @@ pub async fn get_dp_info(url: &str, api_key: Option<&str>) -> Result<DpInfo, Str
         .unwrap_or_else(|| UNKNOWN_MODEL_ID.to_string());
 
     Ok(DpInfo { dp_size, model_id })
+}
+
+/// Number of DP ranks requests can be routed to.
+fn routing_dp_size(dp_size: Option<usize>, attn_dp_size: Option<usize>) -> Result<usize, String> {
+    if dp_size.is_none() && attn_dp_size.is_none() {
+        return Err("No dp_size".to_string());
+    }
+    // Newer SGLang separates model replicas from attention-DP groups; older
+    // servers report their routing width in dp_size alone.
+    dp_size
+        .unwrap_or(1)
+        .checked_mul(attn_dp_size.unwrap_or(1))
+        .filter(|&width| width > 0)
+        .ok_or_else(|| "DP sizes must be positive, with a product that fits usize".to_string())
 }
 
 /// Step 2b: Discover DP (Data Parallel) information (only for DP-aware workers).
@@ -74,5 +87,36 @@ impl StepExecutor<LocalWorkerWorkflowData> for DiscoverDPInfoStep {
 
     fn is_retryable(&self, _error: &WorkflowError) -> bool {
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::routing_dp_size;
+
+    #[test]
+    fn test_attn_dp_groups_are_routable_ranks() {
+        // `--dp-size 8 --enable-dp-attention` resolves to dp_size=1, attn_dp_size=8.
+        assert_eq!(routing_dp_size(Some(1), Some(8)), Ok(8));
+    }
+
+    #[test]
+    fn test_dp_size_alone_is_the_width() {
+        assert_eq!(routing_dp_size(Some(4), None), Ok(4));
+    }
+
+    #[test]
+    fn test_attn_dp_size_alone_is_the_width() {
+        assert_eq!(routing_dp_size(None, Some(8)), Ok(8));
+    }
+
+    #[test]
+    fn test_missing_sizes_are_refused() {
+        assert!(routing_dp_size(None, None).is_err());
+    }
+
+    #[test]
+    fn test_zero_width_is_refused() {
+        assert!(routing_dp_size(Some(0), Some(8)).is_err());
     }
 }
