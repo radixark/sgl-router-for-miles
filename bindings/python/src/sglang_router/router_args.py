@@ -38,6 +38,7 @@ class RouterArgs:
     max_tree_size: int = 2**26
     max_idle_secs: int = 4 * 3600
     assignment_mode: str = "random"  # Mode for manual policy new routing key assignment
+    capacity_signal: str = "kv"  # Capacity signal for capacity_aware policy
     max_payload_size: int = 512 * 1024 * 1024  # 512MB default for large batches
     bucket_adjust_interval_secs: int = 5
     dp_aware: bool = False
@@ -254,6 +255,7 @@ class RouterArgs:
                 "round_robin",
                 "cache_aware",
                 "power_of_two",
+                "capacity_aware",
                 "manual",
                 "consistent_hashing",
                 "prefix_hash",
@@ -269,6 +271,7 @@ class RouterArgs:
                 "round_robin",
                 "cache_aware",
                 "power_of_two",
+                "capacity_aware",
                 "manual",
                 "bucket",
                 "consistent_hashing",
@@ -285,6 +288,7 @@ class RouterArgs:
                 "round_robin",
                 "cache_aware",
                 "power_of_two",
+                "capacity_aware",
                 "manual",
                 "consistent_hashing",
                 "prefix_hash",
@@ -339,6 +343,13 @@ class RouterArgs:
             default=RouterArgs.assignment_mode,
             choices=["random", "min_load", "min_group"],
             help="Mode for assigning new routing keys in manual policy: random (default), min_load (worker with fewest requests), min_group (worker with fewest routing keys)",
+        )
+        routing_group.add_argument(
+            f"--{prefix}capacity-signal",
+            type=str,
+            default=RouterArgs.capacity_signal,
+            choices=["kv"],
+            help="Capacity signal for capacity_aware policy: kv (KV-cache tokens from each worker's /get_server_info)",
         )
         routing_group.add_argument(
             f"--{prefix}max-payload-size",
