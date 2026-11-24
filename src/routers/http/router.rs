@@ -340,7 +340,8 @@ impl Router {
         events::RequestReceivedEvent {}.emit();
 
         let status = response.status();
-        worker.record_outcome(status.is_success());
+        // A 4xx is the request's fault, not the worker's: counting it opens healthy workers' breakers.
+        worker.record_outcome(status.is_success() || status.is_client_error());
 
         // Record worker errors for server errors (5xx)
         if status.is_server_error() {
