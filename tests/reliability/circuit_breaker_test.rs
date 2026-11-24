@@ -11,7 +11,9 @@ use serde_json::json;
 use smg::config::{CircuitBreakerConfig, RetryConfig, RouterConfig};
 use tower::ServiceExt;
 
-use crate::common::{AppTestContext, TestRouterConfig, TestWorkerConfig};
+use crate::common::{
+    mock_worker::MOCK_CONTEXT_LENGTH, AppTestContext, TestRouterConfig, TestWorkerConfig,
+};
 
 #[cfg(test)]
 mod circuit_breaker_tests {
@@ -174,6 +176,58 @@ mod circuit_breaker_tests {
         assert!(
             success_count > 0,
             "Should have some successful requests from healthy worker"
+        );
+
+        ctx.shutdown().await;
+    }
+
+    /// A 400 (request exceeds the context window) is the request's fault, so it must not open
+    /// the breaker of the healthy worker that rejected it
+    #[tokio::test]
+    async fn test_circuit_breaker_ignores_client_errors() {
+        let config = TestRouterConfig::round_robin_with_circuit_breaker(
+            3204,
+            CircuitBreakerConfig {
+                failure_threshold: 2,
+                success_threshold: 1,
+                timeout_duration_secs: 60,
+                window_duration_secs: 60,
+            },
+        );
+
+        let ctx =
+            AppTestContext::new_with_config(config, vec![TestWorkerConfig::healthy(19106)]).await;
+
+        let app = ctx.create_app().await;
+
+        let generate = |max_new_tokens: u64| {
+            let payload = json!({
+                "text": "Test client errors",
+                "sampling_params": {"max_new_tokens": max_new_tokens},
+                "stream": false
+            });
+            Request::builder()
+                .method("POST")
+                .uri("/generate")
+                .header(CONTENT_TYPE, "application/json")
+                .body(Body::from(serde_json::to_string(&payload).unwrap()))
+                .unwrap()
+        };
+
+        for _ in 0..5 {
+            let resp = app
+                .clone()
+                .oneshot(generate(MOCK_CONTEXT_LENGTH + 1))
+                .await
+                .unwrap();
+            assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+        }
+
+        let resp = app.oneshot(generate(16)).await.unwrap();
+        assert_eq!(
+            resp.status(),
+            StatusCode::OK,
+            "Client errors must not open the worker's circuit breaker"
         );
 
         ctx.shutdown().await;

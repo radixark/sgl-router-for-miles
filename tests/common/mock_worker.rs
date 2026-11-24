@@ -153,6 +153,8 @@ impl Drop for MockWorker {
 
 // Handler implementations
 
+pub const MOCK_CONTEXT_LENGTH: u64 = 4096;
+
 /// Check if request should fail based on configured fail_rate
 async fn should_fail(config: &MockWorkerConfig) -> bool {
     rand::random::<f32>() < config.fail_rate
@@ -307,6 +309,21 @@ async fn generate_handler(
             [("x-worker-id", worker_id)],
             Json(json!({
                 "error": "Random failure for testing"
+            })),
+        )
+            .into_response();
+    }
+
+    // Like SGLang, reject a request that cannot fit the context window with a 400
+    if payload["sampling_params"]["max_new_tokens"]
+        .as_u64()
+        .is_some_and(|n| n > MOCK_CONTEXT_LENGTH)
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            [("x-worker-id", worker_id)],
+            Json(json!({
+                "error": "Requested token count exceeds the model's maximum context length"
             })),
         )
             .into_response();
