@@ -11,6 +11,7 @@ pub enum PolicyType {
     RoundRobin,
     CacheAware,
     PowerOfTwo,
+    CapacityAware,
     Bucket,
     Manual,
     ConsistentHashing,
@@ -349,6 +350,7 @@ struct Router {
     max_tree_size: usize,
     max_idle_secs: u64,
     assignment_mode: String,
+    capacity_signal: String,
     max_payload_size: usize,
     dp_aware: bool,
     api_key: Option<String>,
@@ -451,6 +453,13 @@ impl Router {
                     max_tree_size: self.max_tree_size,
                 },
                 PolicyType::PowerOfTwo => ConfigPolicyConfig::PowerOfTwo {
+                    load_check_interval_secs: 5,
+                },
+                PolicyType::CapacityAware => ConfigPolicyConfig::CapacityAware {
+                    capacity_signal: self
+                        .capacity_signal
+                        .parse::<config::CapacitySignal>()
+                        .unwrap_or_else(|e| panic!("{}", e)),
                     load_check_interval_secs: 5,
                 },
                 PolicyType::Bucket => ConfigPolicyConfig::Bucket {
@@ -655,6 +664,7 @@ impl Router {
         max_tree_size = 2usize.pow(26),
         max_idle_secs = 14400,
         assignment_mode = String::from("random"),
+        capacity_signal = String::from("kv"),
         max_payload_size = 512 * 1024 * 1024,
         dp_aware = false,
         api_key = None,
@@ -743,6 +753,7 @@ impl Router {
         max_tree_size: usize,
         max_idle_secs: u64,
         assignment_mode: String,
+        capacity_signal: String,
         max_payload_size: usize,
         dp_aware: bool,
         api_key: Option<String>,
@@ -844,6 +855,7 @@ impl Router {
             max_tree_size,
             max_idle_secs,
             assignment_mode,
+            capacity_signal,
             max_payload_size,
             dp_aware,
             api_key,

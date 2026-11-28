@@ -192,6 +192,10 @@ impl ConfigValidator {
             }
             PolicyConfig::PowerOfTwo {
                 load_check_interval_secs,
+            }
+            | PolicyConfig::CapacityAware {
+                load_check_interval_secs,
+                ..
             } => {
                 if *load_check_interval_secs == 0 {
                     return Err(ConfigError::InvalidValue {

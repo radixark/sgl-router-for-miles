@@ -12,6 +12,7 @@ use crate::core::{HashRing, Worker};
 
 mod bucket;
 mod cache_aware;
+mod capacity_aware;
 mod consistent_hashing;
 mod factory;
 mod manual;
@@ -24,6 +25,8 @@ pub mod tree;
 pub(crate) mod utils;
 pub use bucket::BucketPolicy;
 pub use cache_aware::CacheAwarePolicy;
+pub(crate) use capacity_aware::kv_capacity_from_server_info;
+pub use capacity_aware::CapacityAwarePolicy;
 pub use consistent_hashing::ConsistentHashingPolicy;
 pub use factory::PolicyFactory;
 pub use manual::{ManualConfig, ManualPolicy};
@@ -75,6 +78,13 @@ pub trait LoadBalancingPolicy: Send + Sync + Debug {
     /// This is called periodically with current load information for load-aware policies.
     fn update_loads(&self, _loads: &std::collections::HashMap<String, isize>) {
         // Default: no-op for policies that don't use load information
+    }
+
+    /// Update per-worker KV-cache capacity, in tokens, keyed by worker URL
+    ///
+    /// Called periodically by the load monitor for capacity-aware policies.
+    fn update_capacities(&self, _capacities: &std::collections::HashMap<String, f64>) {
+        // Default: no-op for policies that don't weight workers by capacity
     }
 
     /// Set mesh sync manager

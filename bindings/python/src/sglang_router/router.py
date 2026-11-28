@@ -25,6 +25,7 @@ def policy_from_str(policy_str: Optional[str]) -> PolicyType:
         "round_robin": PolicyType.RoundRobin,
         "cache_aware": PolicyType.CacheAware,
         "power_of_two": PolicyType.PowerOfTwo,
+        "capacity_aware": PolicyType.CapacityAware,
         "bucket": PolicyType.Bucket,
         "manual": PolicyType.Manual,
         "consistent_hashing": PolicyType.ConsistentHashing,
@@ -136,6 +137,7 @@ class Router:
             - PolicyType.RoundRobin: Distribute requests in round-robin fashion
             - PolicyType.CacheAware: Distribute requests based on cache state and load balance
             - PolicyType.PowerOfTwo: Select best of two random workers based on load (PD mode only)
+            - PolicyType.CapacityAware: Fewest in-flight requests per unit of worker capacity (see capacity_signal)
         host: Host address to bind the router server. Supports IPv4, IPv6 (e.g., ::, ::1), or 0.0.0.0 for all interfaces. Default: '0.0.0.0'
         port: Port number to bind the router server. Default: 3001
         worker_startup_timeout_secs: Timeout in seconds for worker startup and registration. Large models can take significant time to load into GPU memory. Default: 1800 (30 minutes)

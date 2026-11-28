@@ -19,7 +19,7 @@ use tracing::{debug, info, warn};
 
 use crate::{
     core::{metrics_aggregator::MetricPack, ConnectionMode, Worker, WorkerRegistry, WorkerType},
-    policies::PolicyRegistry,
+    policies::{kv_capacity_from_server_info, PolicyRegistry},
     protocols::worker_spec::{FlushCacheResult, WorkerLoadInfo, WorkerLoadsResult},
 };
 
@@ -343,38 +343,105 @@ impl LoadMonitor {
         tx: watch::Sender<HashMap<String, isize>>,
     ) {
         let mut interval_timer = tokio::time::interval(interval);
+        // Worker URL -> KV-cache capacity in tokens. Fixed for a worker's lifetime, so each
+        // worker is asked once.
+        let mut kv_capacities: HashMap<String, f64> = HashMap::new();
 
         loop {
             interval_timer.tick().await;
 
             let power_of_two_policies = policy_registry.get_all_power_of_two_policies();
+            let capacity_aware_policies = policy_registry.get_all_capacity_aware_policies();
 
-            if power_of_two_policies.is_empty() {
-                debug!("No PowerOfTwo policies found, skipping load fetch");
+            if power_of_two_policies.is_empty() && capacity_aware_policies.is_empty() {
+                debug!("No load-aware policies found, skipping load fetch");
                 continue;
             }
 
-            let result = WorkerManager::get_all_worker_loads(&worker_registry, &client).await;
+            if !power_of_two_policies.is_empty() {
+                let result = WorkerManager::get_all_worker_loads(&worker_registry, &client).await;
 
-            let mut loads = HashMap::new();
-            for load_info in result.loads {
-                loads.insert(load_info.worker, load_info.load);
+                let mut loads = HashMap::new();
+                for load_info in result.loads {
+                    loads.insert(load_info.worker, load_info.load);
+                }
+
+                if !loads.is_empty() {
+                    debug!(
+                        "Fetched loads from {} workers, updating {} PowerOfTwo policies",
+                        loads.len(),
+                        power_of_two_policies.len()
+                    );
+                    for policy in &power_of_two_policies {
+                        policy.update_loads(&loads);
+                    }
+                    let _ = tx.send(loads);
+                } else {
+                    warn!("No loads fetched from workers");
+                }
             }
 
-            if !loads.is_empty() {
-                debug!(
-                    "Fetched loads from {} workers, updating {} PowerOfTwo policies",
-                    loads.len(),
-                    power_of_two_policies.len()
-                );
-                for policy in &power_of_two_policies {
-                    policy.update_loads(&loads);
+            if !capacity_aware_policies.is_empty() {
+                Self::refresh_kv_capacities(&worker_registry, &client, &mut kv_capacities).await;
+                for policy in &capacity_aware_policies {
+                    policy.update_capacities(&kv_capacities);
                 }
-                let _ = tx.send(loads);
-            } else {
-                warn!("No loads fetched from workers");
             }
         }
+    }
+
+    /// Fetch KV-cache capacity for workers not seen before and forget removed workers
+    async fn refresh_kv_capacities(
+        worker_registry: &WorkerRegistry,
+        client: &reqwest::Client,
+        kv_capacities: &mut HashMap<String, f64>,
+    ) {
+        let workers = worker_registry.get_all();
+        kv_capacities.retain(|url, _| workers.iter().any(|w| w.url() == url));
+
+        let futures: Vec<_> = workers
+            .iter()
+            .filter(|w| matches!(w.connection_mode(), ConnectionMode::Http))
+            .filter(|w| !kv_capacities.contains_key(w.url()))
+            .map(|worker| {
+                let url = worker.url().to_string();
+                let api_key = worker.api_key().clone();
+                let client = client.clone();
+                async move {
+                    let capacity = Self::fetch_kv_capacity(&client, &url, api_key.as_deref()).await;
+                    (url, capacity)
+                }
+            })
+            .collect();
+
+        for (url, capacity) in future::join_all(futures).await {
+            match capacity {
+                Some(capacity) => {
+                    info!("Worker {} KV capacity: {} tokens", url, capacity);
+                    kv_capacities.insert(url, capacity);
+                }
+                None => warn!("Could not read KV capacity of worker {}", url),
+            }
+        }
+    }
+
+    async fn fetch_kv_capacity(
+        client: &reqwest::Client,
+        url: &str,
+        api_key: Option<&str>,
+    ) -> Option<f64> {
+        let mut req = client
+            .get(format!("{}/get_server_info", url))
+            .timeout(REQUEST_TIMEOUT);
+        if let Some(key) = api_key {
+            req = req.bearer_auth(key);
+        }
+        let resp = req.send().await.ok()?;
+        if !resp.status().is_success() {
+            return None;
+        }
+        let info = resp.json::<Value>().await.ok()?;
+        kv_capacity_from_server_info(&info)
     }
 
     pub async fn is_running(&self) -> bool {

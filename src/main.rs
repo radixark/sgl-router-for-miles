@@ -5,10 +5,10 @@ use rand::{distr::Alphanumeric, Rng};
 use smg::{
     auth::{ApiKeyEntry, ControlPlaneAuthConfig, JwtConfig, Role},
     config::{
-        CircuitBreakerConfig, ConfigError, ConfigResult, DiscoveryConfig, HealthCheckConfig,
-        HistoryBackend, ManualAssignmentMode, MetricsConfig, OracleConfig, PolicyConfig,
-        PostgresConfig, RedisConfig, RetryConfig, RouterConfig, RoutingMode, TokenizerCacheConfig,
-        TraceConfig,
+        CapacitySignal, CircuitBreakerConfig, ConfigError, ConfigResult, DiscoveryConfig,
+        HealthCheckConfig, HistoryBackend, ManualAssignmentMode, MetricsConfig, OracleConfig,
+        PolicyConfig, PostgresConfig, RedisConfig, RetryConfig, RouterConfig, RoutingMode,
+        TokenizerCacheConfig, TraceConfig,
     },
     core::ConnectionMode,
     observability::{
@@ -146,7 +146,7 @@ struct CliArgs {
 
     // ==================== Routing Policy ====================
     /// Load balancing policy to use
-    #[arg(long, default_value = "cache_aware", value_parser = ["random", "round_robin", "cache_aware", "power_of_two", "prefix_hash", "manual"], help_heading = "Routing Policy")]
+    #[arg(long, default_value = "cache_aware", value_parser = ["random", "round_robin", "cache_aware", "power_of_two", "capacity_aware", "prefix_hash", "manual"], help_heading = "Routing Policy")]
     policy: String,
 
     /// Cache threshold (0.0-1.0) for cache-aware routing
@@ -176,6 +176,10 @@ struct CliArgs {
     /// Assignment mode for manual policy when encountering a new routing key
     #[arg(long, default_value = "random", value_parser = ["random", "min_load", "min_group"], help_heading = "Routing Policy")]
     assignment_mode: String,
+
+    /// Capacity signal for capacity_aware policy: kv (KV-cache tokens from /get_server_info)
+    #[arg(long, default_value = "kv", value_parser = ["kv"], help_heading = "Routing Policy")]
+    capacity_signal: String,
 
     /// Number of prefix tokens to use for prefix_hash policy
     #[arg(long, default_value_t = 256, help_heading = "Routing Policy")]
@@ -207,11 +211,11 @@ struct CliArgs {
     decode: Vec<String>,
 
     /// Specific policy for prefill nodes in PD mode
-    #[arg(long, value_parser = ["random", "round_robin", "cache_aware", "power_of_two", "prefix_hash", "manual"], help_heading = "PD Disaggregation")]
+    #[arg(long, value_parser = ["random", "round_robin", "cache_aware", "power_of_two", "capacity_aware", "prefix_hash", "manual"], help_heading = "PD Disaggregation")]
     prefill_policy: Option<String>,
 
     /// Specific policy for decode nodes in PD mode
-    #[arg(long, value_parser = ["random", "round_robin", "cache_aware", "power_of_two", "prefix_hash", "manual"], help_heading = "PD Disaggregation")]
+    #[arg(long, value_parser = ["random", "round_robin", "cache_aware", "power_of_two", "capacity_aware", "prefix_hash", "manual"], help_heading = "PD Disaggregation")]
     decode_policy: Option<String>,
 
     /// Timeout in seconds for worker startup and registration
@@ -734,6 +738,13 @@ impl CliArgs {
                 max_tree_size: self.max_tree_size,
             },
             "power_of_two" => PolicyConfig::PowerOfTwo {
+                load_check_interval_secs: 5,
+            },
+            "capacity_aware" => PolicyConfig::CapacityAware {
+                capacity_signal: self
+                    .capacity_signal
+                    .parse::<CapacitySignal>()
+                    .unwrap_or_else(|e| panic!("{}", e)),
                 load_check_interval_secs: 5,
             },
             "prefix_hash" => PolicyConfig::PrefixHash {
